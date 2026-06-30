@@ -1,0 +1,339 @@
+From 14509585ea3f79cca7357a572508c05a36235ce3 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 3 Sep 2025 03:20:57 +0200
+Subject: [PATCH 2/2] net: phy: mediatek: add calibration logic for AN7583
+
+Similar to Airoha AN7581 Switch PHY also Airoiha AN7583 require
+dedicated calibration and tuneup to make EEE correctly work.
+
+Also move AN7583 to dedicated file and add the required tables for R50
+calibration and TX Amp compensation.
+
+Airoha AN7583 differ from AN7581 by having a register where the MDI
+board resitor type is stored.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/phy/mediatek/Makefile         |   3 +-
+ drivers/net/phy/mediatek/airoha-phy-lib.c |   5 +-
+ drivers/net/phy/mediatek/an7583.c         | 254 ++++++++++++++++++++++
+ drivers/net/phy/mediatek/mtk-ge-soc.c     |   8 +-
+ drivers/net/phy/mediatek/mtk-ge-soc.h     |   1 +
+ drivers/net/phy/mediatek/mtk.h            |   1 +
+ 6 files changed, 263 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/phy/mediatek/an7583.c
+
+--- a/drivers/net/phy/mediatek/Makefile
++++ b/drivers/net/phy/mediatek/Makefile
+@@ -3,5 +3,5 @@ obj-$(CONFIG_MEDIATEK_2P5GE_PHY)	+= mtk-
+ obj-$(CONFIG_MEDIATEK_GE_PHY)		+= mtk-ge.o
+ obj-$(CONFIG_MEDIATEK_GE_SOC_PHY)	+= mtk-ge-soc.o
+ mtk-ge-soc-objs				+= mtk-ge-soc.o
+-mtk-ge-soc-objs				+= airoha-phy-lib.o an7581.o
++mtk-ge-soc-objs				+= airoha-phy-lib.o an7581.o an7583.o
+ obj-$(CONFIG_MTK_NET_PHYLIB)		+= mtk-phy-lib.o
+--- a/drivers/net/phy/mediatek/airoha-phy-lib.c
++++ b/drivers/net/phy/mediatek/airoha-phy-lib.c
+@@ -613,8 +613,9 @@ static int airoha_rx_offset_cal_sw(struc
+ 	phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1, 0x171,
+ 			   BIT(8) | BIT(7));
+ 
+-	phy_write_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_RG_ANA_CAL_RG6,
+-		      0x1);
++	if (phydev->drv->phy_id == MTK_GPHY_ID_AN7581)
++		phy_write_mmd(phydev, MDIO_MMD_VEND1,
++			      MTK_PHY_RG_ANA_CAL_RG6, 0x1);
+ 
+ 	return 0;
+ }
+--- /dev/null
++++ b/drivers/net/phy/mediatek/an7583.c
+@@ -0,0 +1,254 @@
++// SPDX-License-Identifier: GPL-2.0
++
++#include <linux/phy.h>
++#include <linux/regmap.h>
++#include <linux/mfd/syscon.h>
++
++#include "../phylib.h"
++#include "mtk.h"
++#include "mtk-ge-soc.h"
++
++#define AIROHA_CHIP_SCU_ECC_SEL		0x258
++#define   AIROHA_CHIP_SCU_MDI_5R	BIT(23)
++
++/*
++ * 2 chip revision
++ * TXMR or discrete
++ * 2 MDI type
++ * TX AMP test/TX AMP 1G/TX AMP 100M/TX AMP 10M/R50
++ * 4 PHY
++ */
++static int an7583_tx_amp_compensation_tbl[TRANSFORMER_TYPE_MAX][MDI_TYPE_MAX][CALIB_CONST_TYPE_MAX][4] = {
++	[TXMR] = {
++		[MDI_0R] = {
++			[TX_AMP_TEST_A] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_B] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_C] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_D] = { -3, -3, -3, -3 },
++			[TX_AMP_1G_A] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_B] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_C] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_D] = { 0, 0, 0, 0 },
++			[TX_AMP_100M_A] = { 4, 4, 4, 4 },
++			[TX_AMP_100M_B] = { 4, 4, 4, 4 },
++			[TX_AMP_10M_A] = { 0, 0, 0, 0 },
++			[TX_AMP_10M_B] = { 0, 0, 0, 0 },
++			[R50_A] = { 4, 4, 0, 0 },
++			[R50_B] = { 4, 4, 0, 0 },
++			[R50_C] = { 5, 5, 3, 4 },
++			[R50_D] = { 4, 4, 4, 0 },
++		},
++		[MDI_5R] = {
++			[TX_AMP_TEST_A] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_B] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_C] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_D] = { -3, -3, -3, -3 },
++			[TX_AMP_1G_A] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_B] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_C] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_D] = { 0, 0, 0, 0 },
++			[TX_AMP_100M_A] = { 4, 4, 4, 4 },
++			[TX_AMP_100M_B] = { 4, 4, 4, 4 },
++			[TX_AMP_10M_A] = { 0, 0, 0, 0 },
++			[TX_AMP_10M_B] = { 0, 0, 0, 0 },
++			[R50_A] = { -4, -4, -4, -4 },
++			[R50_B] = { -4, -4, -4, -4 },
++			[R50_C] = { -2, -2, -2, -2 },
++			[R50_D] = { -3, -3, -2, -2 },
++		},
++	},
++	[DISCRETE] = {
++		[MDI_0R] = {
++			[TX_AMP_TEST_A] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_B] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_C] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_D] = { -3, -3, -3, -3 },
++			[TX_AMP_1G_A] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_B] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_C] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_D] = { 0, 0, 0, 0 },
++			[TX_AMP_100M_A] = { 4, 4, 4, 4 },
++			[TX_AMP_100M_B] = { 4, 4, 4, 4 },
++			[TX_AMP_10M_A] = { 0, 0, 0, 0 },
++			[TX_AMP_10M_B] = { 0, 0, 0, 0 },
++			[R50_A] = { 4, 4, 4, 4 },
++			[R50_B] = { 4, 4, 4, 4 },
++			[R50_C] = { 6, 6, 6, 6 },
++			[R50_D] = { 4, 4, 4, 4 },
++		},
++		[MDI_5R] = {
++			[TX_AMP_TEST_A] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_B] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_C] = { -3, -3, -3, -3 },
++			[TX_AMP_TEST_D] = { -3, -3, -3, -3 },
++			[TX_AMP_1G_A] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_B] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_C] = { 0, 0, 0, 0 },
++			[TX_AMP_1G_D] = { 0, 0, 0, 0 },
++			[TX_AMP_100M_A] = { 4, 4, 4, 4 },
++			[TX_AMP_100M_B] = { 4, 4, 4, 4 },
++			[TX_AMP_10M_A] = { 0, 0, 0, 0 },
++			[TX_AMP_10M_B] = { 0, 0, 0, 0 },
++			[R50_A] = { 0, 0, 0, 0 },
++			[R50_B] = { 0, 0, 0, 0 },
++			[R50_C] = { 0, 0, 0, 0 },
++			[R50_D] = { 0, 0, 0, 0 },
++		},
++	},
++};
++
++static u8 an7583_zcal_to_r50ohm_0R[64] = {
++	127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
++	127, 127, 127, 122, 118, 114, 110, 106, 102,  98,  96,  92,  88,  85,  82,  80,
++	 76,  72,  70,  68,  64,  62,  60,  57,  55,  52,  50,  48,  46,  44,  41,  40,
++	 38,  36,  33,  32,  30,  28,  26,  24,  24,  22,  20,  18,  16,  16,  14,  12,
++};
++
++static u8 an7583_zcal_to_r50ohm_5R[64] = {
++	127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
++	127, 127, 127, 127, 127, 127, 127, 127, 127, 124, 120, 116, 112, 110, 106, 102,
++	 99,  96,  93,  90,  88,  84,  81,  79,  76,  73,  71,  68,  66,  64,  61,  59,
++	 56,  54,  52,  50,  48,  46,  44,  42,  40,  39,  37,  36,  33,  32,  31,  29,
++};
++
++int an7583_phy_config_init(struct phy_device *phydev)
++{
++	struct airoha_socphy_shared *shared = phy_package_get_priv(phydev);
++	struct device_node *np = phydev->mdio.dev.of_node;
++	struct phy_device *phydev_p0;
++	struct regmap *chip_scu_map;
++	u8 phy_offset;
++	u32 val;
++	int ret;
++
++	/* BMCR_PDOWN is enabled by default */
++	phy_clear_bits(phydev, MII_BMCR, BMCR_PDOWN);
++
++	phydev_p0 = shared->phydev_p0;
++	phy_offset = phydev->mdio.addr - phydev_p0->mdio.addr;
++
++	chip_scu_map = syscon_regmap_lookup_by_phandle_optional(np, "airoha,chip-scu");
++	if (IS_ERR(chip_scu_map))
++		return PTR_ERR(chip_scu_map);
++
++	/* Read SoC MDI Resister Type if available or default to 5R */
++	if (chip_scu_map) {
++		ret = regmap_read(chip_scu_map, AIROHA_CHIP_SCU_ECC_SEL, &val);
++		if (ret)
++			return ret;
++
++		if (val & AIROHA_CHIP_SCU_MDI_5R)
++			shared->mdi_resister_type = MDI_5R;
++		else
++			shared->mdi_resister_type = MDI_0R;
++	} else {
++		shared->mdi_resister_type = MDI_5R;
++	}
++
++	shared->mdi_resister_type = MDI_5R;
++	if (shared->mdi_resister_type == MDI_0R)
++		shared->r50_cal_tbl = an7583_zcal_to_r50ohm_0R;
++	if (shared->mdi_resister_type == MDI_5R)
++		shared->r50_cal_tbl = an7583_zcal_to_r50ohm_5R;
++	shared->tx_amp_compensation_tbl = &an7583_tx_amp_compensation_tbl;
++
++	ret = airoha_phy_calib(phydev);
++	if (ret)
++		return ret;
++
++	ret = airoha_phy_auto_select_transformer(phydev);
++	if (ret)
++		return ret;
++
++	ret = airoha_phy_tx_amp_compensation(phydev);
++	if (ret)
++		return ret;
++
++	/* Enable Idle Mode Power Setting */
++	if (phy_offset == 0) {
++		phy_write_mmd(phydev, MDIO_MMD_VEND2, 0x268, 0x07F1);
++		phy_write_mmd(phydev, MDIO_MMD_VEND2, 0x703, 0x3111);
++		phy_write_mmd(phydev, MDIO_MMD_VEND2, 0x271, 0x3C24);
++		phy_write_mmd(phydev, MDIO_MMD_VEND2, 0x701, 0x1023);
++	}
++
++	if (shared->transformer_type[phy_offset] == TXMR) {
++		phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x23, 0x0881);
++		phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x24, 0x0881);
++		phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x25, 0x0881);
++		phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x26, 0x0881);
++
++		if (shared->mdi_resister_type == MDI_0R)
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x05, 0x0205);
++		else
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x05, 0x0200);
++	} else {
++		if (shared->mdi_resister_type == MDI_0R) {
++			/* RX setting for 5R_TXMR before AN setting */
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xe7, 0x6666);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xe9, 0x0003);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xfe, 0x0006);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0xe6, 0x1111);
++			/* 100M sharp */
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x23, 0x0c86);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x24, 0x0c86);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x25, 0x0c86);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x26, 0x0c86);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x01, 0x01cb);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x02, 0x01c2);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x03, 0x0108);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x04, 0x0211);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x05, 0x0205);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x06, 0x0387);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x07, 0x03ce);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x08, 0x03c8);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x0b, 0x0005);
++		} else {
++			/* 100M sharp */
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x23, 0x0886);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x24, 0x0886);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x25, 0x0886);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x26, 0x0886);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x00, 0x0195);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x01, 0x01cb);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x02, 0x01c2);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x03, 0x0108);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x04, 0x0211);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x05, 0x0205);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x06, 0x0387);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x07, 0x03ce);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x08, 0x03c3);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x0a, 0x0010);
++			phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x0b, 0x0005);
++		}
++	}
++
++	/* RX Setting */
++	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x3c, 0xc000);
++	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x3d, 0x0000);
++	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x3e, 0xc000);
++
++	/* EEE setting */
++	phy_write_mmd(phydev, MDIO_MMD_AN, 0x3c, 0x0000);
++
++	/* 10M settings */
++	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x1a3, 0x00d2);
++	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x1a4, 0x010e);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, 0x27b, 0x1177);
++	phy_write_mmd(phydev, MDIO_MMD_VEND2, 0x27c, 0x0808);
++
++	phy_select_page(phydev, MTK_PHY_PAGE_EXTENDED_3);
++	__phy_write(phydev, 0x14, 0x190);
++	phy_restore_page(phydev, MTK_PHY_PAGE_STANDARD, 0);
++
++	phy_select_page(phydev, MTK_PHY_PAGE_EXTENDED_1);
++	__phy_write(phydev, 0x14, 0x3a18);
++	phy_restore_page(phydev, MTK_PHY_PAGE_STANDARD, 0);
++
++	phy_write(phydev, 0x9, 0x0600);
++
++	/* EEE keep only Pair A ON */
++	phy_write_mmd(phydev, MDIO_MMD_VEND1, 0x630, 0x006E);
++
++	return 0;
++}
+--- a/drivers/net/phy/mediatek/mtk-ge-soc.h
++++ b/drivers/net/phy/mediatek/mtk-ge-soc.h
+@@ -414,5 +414,6 @@ int airoha_phy_auto_select_transformer(s
+ int airoha_phy_tx_amp_compensation(struct phy_device *phydev);
+ 
+ int an7581_phy_config_init(struct phy_device *phydev);
++int an7583_phy_config_init(struct phy_device *phydev);
+ 
+ #endif /* _MTK_GE_SOC_H_ */
+--- a/drivers/net/phy/mediatek/mtk.h
++++ b/drivers/net/phy/mediatek/mtk.h
+@@ -13,6 +13,7 @@
+ 
+ #define MTK_EXT_PAGE_ACCESS			0x1f
+ #define MTK_PHY_PAGE_EXTENDED_1			0x0001
++#define MTK_PHY_PAGE_EXTENDED_3			0x0003
+ #define MTK_PHY_PAGE_STANDARD			0x0000
+ #define MTK_PHY_PAGE_EXTENDED_52B5		0x52b5
+ 
+--- a/drivers/net/phy/mediatek/mtk-ge-soc.c
++++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
+@@ -1148,12 +1148,6 @@ static int an7581_phy_led_polarity_set(s
+ 			      MTK_PHY_LED_ON_POLARITY, val);
+ }
+ 
+-static int an7583_phy_config_init(struct phy_device *phydev)
+-{
+-	/* BMCR_PDOWN is enabled by default */
+-	return phy_clear_bits(phydev, MII_BMCR, BMCR_PDOWN);
+-}
+-
+ static struct phy_driver mtk_socphy_driver[] = {
+ 	{
+ 		PHY_ID_MATCH_EXACT(MTK_GPHY_ID_MT7981),

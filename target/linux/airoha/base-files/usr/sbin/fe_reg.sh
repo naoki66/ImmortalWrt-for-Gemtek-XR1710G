@@ -1,0 +1,203 @@
+ravr()
+{
+  REG=$1
+  ADDR=$2
+  
+  RES=$(devmem $ADDR)
+  printf "%-30s (%-10s) = %-8s\n" $REG $ADDR $RES
+}
+
+ravr FE_DMA_GLO_CFG          0x1fb50000
+ravr FE_RST_GLO              0x1fb50004
+ravr FE_INT_STATUS           0x1fb50008
+ravr FE_INT_Enable           0x1fb5000c
+ravr FE_FOE_TS_T             0x1fb50010
+ravr FE_IPv6_EXT             0x1fb50014
+ravr FE_CNT_CFG              0x1fb50018
+ravr FE_TAG_CFG              0x1fb5001c
+ravr FE_WAN_PORT             0x1fb50024
+ravr FE_WAN_MAC_H            0x1fb50030
+ravr FE_WAN_MAC_LMIN         0x1fb50034
+ravr FE_WAN_MAC_LMAX         0x1fb50038
+ravr FE_LAN_MAC_H            0x1fb50040
+ravr FE_LAN_MAC_LMIN         0x1fb50044
+ravr FE_LAN_MAC_LMAX         0x1fb50048
+ravr FE_CDM_OQ_MAP           0x1fb50050
+#P0_RSV:   OQ0_RSV=0x0008, OQ1_RSV=0x0008, OQ2_RSV=0x0008, OQ3_RSV=0x0008, OQ4_RSV=0x0008, OQ5_RSV=0x0008
+#P1_RSV:   OQx_RSV=0x0008
+#P2_RSV:   OQx_RSV=0x0008
+#P3_RSV:   OQ0_RSV=0x0008, OQ1_RSV=0x0008, OQ2_RSV=0x0008, OQ3_RSV=0x0008, OQ4_RSV=0x0008, OQ5_RSV=0x0008, OQ6_RSV=0x0008
+#P4_RSV:   OQ0_RSV=0x0008, OQ1_RSV=0x0008, OQ2_RSV=0x0000, OQ3_RSV=0x0000
+#P5_RSV:   OQ0_RSV=0x0008, OQ1_RSV=0x0008, OQ2_RSV=0x0008, OQ3_RSV=0x0008, OQ4_RSV=0x0008, OQ5_RSV=0x0008
+#P6_RSV:   OQ0_RSV=0x0008, OQ1_RSV=0x0008, OQ2_RSV=0x0008, OQ3_RSV=0x0000, OQ4_RSV=0x0000, OQ5_RSV=0x0000
+#P7_RSV:   OQ0_RSV=0x0008, OQ1_RSV=0x0008, OQ2_RSV=0x0000, OQ3_RSV=0x0000
+#P8_RSV:   OQ0_RSV=0x0008
+#P9_RSV:   OQ0_RSV=0x0008
+#P15_RSV:  OQ0_RSV=0x0008
+#PSE_TOTAL_IQ_OQ_RSV     (0xbfb50090) = 0x000002b4
+#P0_IQ_RSV=0x0012, P1_IQ_RSV=0x0012, P2_IQ_RSV=0x0012, P3_IQ_RSV=0x0012, P4_IQ_RSV=0x0012
+#P5_IQ_RSV=0x0012, P6_IQ_RSV=0x0012, P7_IQ_RSV=0x0012, P8_IQ_RSV=0x0012, P9_IQ_RSV=0x0012
+
+ravr PSE_SHARE_USED_LTHD     0x1fb50094
+ravr PSE_SHARE_USED_HTHD     0x1fb50094
+ravr PSE_PORT0_OQ_EN         0x1fb50088
+ravr PSE_PORT1_OQ_EN         0x1fb50088
+ravr PSE_PORT2_OQ_EN         0x1fb50088
+ravr PSE_PORT3_OQ_EN         0x1fb50088
+ravr PSE_PORT4_OQ_EN         0x1fb50088
+ravr PSE_PORT5_OQ_EN         0x1fb50088
+ravr PSE_PORT6_OQ_EN         0x1fb50088
+ravr PSE_PORT7_OQ_EN         0x1fb50088
+ravr PSE_PORT8_OQ_EN         0x1fb50088
+ravr PSE_PORT9_OQ_EN         0x1fb50088
+ravr PSE_FC_CFG              0x1fb50098
+ravr PSE_MISC_CFG            0x1fb5019c
+ravr PSE_SHARE_BUF_STA       0x1fb50104
+ravr PSE_PORT_STA            0x1fb5010c
+ravr PSE_FQFC_CFG_STA0       0x1fb50118
+ravr PSE_FQFC_CFG_STA1       0x1fb5011c
+ravr FE_MISC_CFG             0x1fb50294
+ravr PSE_PORT_Q_USE_STA_0    0x1fb50150
+#IQ_STA = 0x0002, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_1    0x1fb50154
+#IQ_STA = 0x0002, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_2    0x1fb50158
+#IQ_STA = 0x0002, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_3    0x1fb5015c
+#IQ_STA = 0x0002, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_4    0x1fb50160
+#IQ_STA = 0x0000, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_5    0x1fb50164
+#IQ_STA = 0x0002, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_6    0x1fb50168
+#IQ_STA = 0x0002, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_7    0x1fb5016c
+#IQ_STA = 0x0002, OQ_STA = 0x0000
+ravr PSE_PORT_Q_USE_STA_8    0x1fb50170
+#IQ_STA = 0x5ead, OQ_STA = 0x3eef
+ravr PSE_PORT_Q_USE_STA_9    0x1fb50174
+#IQ_STA = 0x5ead, OQ_STA = 0x3eef
+ravr PSE_FQ_CFG              0x1fb5008c
+ravr PSE_FQ_STA              0x1fb50108
+ravr PSE_BUF_USE_REC         0x1fb50100
+#FREE_Q_CNT_MIN = 0x04c6, SHARE_USED_CNT_MAX = 0x0005
+ravr PSE_OQ_PCNT_REC         0x1fb50114
+ravr PSE_PROBE_L             0x1fb501a0
+ravr PSE_PROBE_H             0x1fb501a4
+ravr PSE_DROP_CNT_0          0x1fb50120
+ravr PSE_DROP_CNT_1          0x1fb50124
+ravr PSE_DROP_CNT_2          0x1fb50128
+ravr PSE_DROP_CNT_3          0x1fb5012c
+ravr PSE_DROP_CNT_4          0x1fb50130
+ravr PSE_DROP_CNT_5          0x1fb50134
+ravr PSE_DROP_CNT_6          0x1fb50138
+ravr PSE_DROP_CNT_7          0x1fb5013c
+ravr PSE_DROP_CNT_8          0x1fb50140
+ravr PSE_DROP_CNT_9          0x1fb50144
+ravr QDMA1_FC_MAPPING_0      0x1fb501b0
+ravr QDMA1_FC_MAPPING_1      0x1fb501b4
+ravr QDMA1_FC_MAPPING_2      0x1fb501b8
+ravr QDMA1_FC_MAPPING_3      0x1fb501bc
+ravr QDMA1_FC_MAPPING_4      0x1fb501c0
+ravr QDMA1_FC_MAPPING_5      0x1fb501c4
+ravr QDMA1_FC_MAPPING_6      0x1fb501c8
+ravr QDMA1_FC_MAPPING_7      0x1fb501cc
+ravr CDMA_VLAN_CTRL            0x1fb50400
+ravr CDMA_PPP_GEN              0x1fb50404
+ravr CDMA_FWD_CFG              0x1fb50408
+ravr CDMA1_CRSN_QSEL0          0x1fb50410
+ravr CDMA1_CRSN_QSEL1          0x1fb50414
+ravr CDMA1_CRSN_QSEL2          0x1fb50418
+ravr CDMA1_CRSN_QSEL3          0x1fb5041c
+ravr CDMA_HWF_CHN_EN           0x1fb5040c
+ravr GDMA1_FWD_CFG             0x1fb50500
+ravr GDMA1_SHRP_CFG            0x1fb50504
+ravr GDMA1_MAC_ADRL            0x1fb50508
+ravr GDMA1_MAC_ADRH            0x1fb5050c
+ravr GDMA1_VLAN_CHECK          0x1fb50510
+ravr GDMA1_LEN_CFG             0x1fb50514
+ravr GDMA1_LAN_PCP             0x1fb50518
+ravr GDMA1_LPBK_CFG            0x1fb5051c
+ravr GDMA1_CHN_RLS             0x1fb50520
+ravr GDMA1_TXCHN_EN            0x1fb50524
+ravr GDMA1_RXCHN_EN            0x1fb50528
+ravr GDMA1_RXCHN_FP            0x1fb5052c
+ravr FE_CPORT_CFG              0x1fb50540
+ravr FE_CPORT_CHN_MAP          0x1fb50544
+ravr FE_CPORT_SHRP_CFG         0x1fb50548
+ravr GDM1_TX_CHN_VLD           0x1fb50570
+ravr GDM1_RX_CHN_VLD           0x1fb50574
+ravr CDMA1_TX_OK_CNT           0x1fb50580
+ravr CDMA1_RXCPU_OK_CNT        0x1fb50590
+ravr CDMA1_RXHWF_OK_CNT        0x1fb50594
+ravr CDMA1_RXCPU_KA_CNT        0x1fb5058c
+ravr CDMA1_RXCPU_DROP_CNT      0x1fb505a0
+ravr CDMA1_RXHWF_DROP_CNT      0x1fb505a4
+ravr CDMA1_RXCPU0_OK_CNT       0x1fb505b0
+ravr CDMA1_RXCPU1_OK_CNT       0x1fb505b4
+ravr CDMA1_RXHWF_FAST_ALL_CNT  0x1fb50598
+ravr CDMA1_RXCPU0_DROP_CNT     0x1fb505d0
+ravr CDMA1_RXCPU1_DROP_CNT     0x1fb505d4
+ravr CDMA1_RXHWF_FAST_DROP_CNT 0x1fb505a8
+ravr GDMA1_MIB_CLER            0x1fb505f0
+ravr GDMA1_TX_GET_CNT          0x1fb50600
+ravr GDMA1_TX_OK_CNT_L         0x1fb50604
+ravr GDMA1_TX_OK_CNT_H         0x1fb50780
+ravr GDMA1_TX_DROP_CNT         0x1fb50608
+ravr GDMA1_TX_OK_BYTE_CNT      0x1fb5060c
+ravr GDMA1_RX_OK_CNT           0x1fb50648
+ravr GDMA1_RX_FC_DROP_CNT      0x1fb5064c
+ravr GDMA1_RX_RC_DROP_CNT      0x1fb50650
+ravr GDMA1_RX_OVER_DROP_CNT    0x1fb50654
+ravr GDMA1_RX_ERROR_DROP_CNT   0x1fb50658
+ravr GDMA1_RX_BYTECNT          0x1fb5065c
+ravr CDMA2_VLAN_CTRL           0x1fb51400
+ravr CDMA2_PPP_GEN             0x1fb51404
+ravr CDMA2_FWD_CFG             0x1fb51408
+ravr CDMA2_HWF_CHN_EN          0x1fb5140c
+ravr CDMA2_CRSN_QSEL0          0x1fb51410
+ravr CDMA2_CRSN_QSEL1          0x1fb51414
+ravr CDMA2_CRSN_QSEL2          0x1fb51418
+ravr CDMA2_CRSN_QSEL3          0x1fb5141c
+ravr GDMA2_FWD_CFG             0x1fb51500
+ravr GDMA2_SHRP_CFG            0x1fb51504
+ravr GDMA2_MAC_ADRL            0x1fb51508
+ravr GDMA2_MAC_ADRH            0x1fb5150c
+ravr GDMA2_VLAN_CHECK          0x1fb51510
+ravr GDMA2_LEN_CFG             0x1fb51514
+ravr FE_WAN_PCP                0x1fb51518
+ravr GDMA2_LPBP_CFG            0x1fb5151c
+ravr GDMA2_CHN_RLS             0x1fb51520
+ravr GDMA2_TXCHN_EN            0x1fb51524
+ravr GDMA2_RXCHN_EN            0x1fb51528
+ravr GDMA2_RXCHN_FP            0x1fb5154c
+ravr GDMA2_RXUC_SHPR_CFG       0x1fb51530
+ravr GDMA2_RXBC_SHPR_CFG       0x1fb51534
+ravr GDMA2_RXMC_SHPR_CFG       0x1fb51538
+ravr GDMA2_RXOC_SHPR_CFG       0x1fb5153c
+ravr GDMA2_TX_CHN_VLD          0x1fb51570
+ravr GDMA2_RX_CHN_VLD          0x1fb51574
+ravr CDMA2_TX_OK_CNT           0x1fb51580
+ravr CDMA2_RXCPU_OK_CNT        0x1fb51590
+ravr CDMA2_RXHWF_OK_CNT        0x1fb51594
+ravr CDMA2_RXCPU_KA_CNT        0x1fb5158c
+ravr CDMA2_RXCPU_DROP_CNT      0x1fb515a0
+ravr CDMA2_RXHWF_DROP_CNT      0x1fb515a4
+ravr CDMA2_RXCPU0_OK_CNT       0x1fb515b0
+ravr CDMA2_RXCPU1_OK_CNT       0x1fb515b4
+ravr CDMA2_RXHWF_FAST_ALL_CNT  0x1fb51598
+ravr CDMA2_RXCPU0_DROP_CNT     0x1fb515d0
+ravr CDMA2_RXCPU1_DROP_CNT     0x1fb515d4
+ravr CDMA2_RXHWF_FAST_DROP_CNT 0x1fb515a8
+ravr GDMA2_MIB_CLER            0x1fb515f0
+ravr GDMA2_TX_GETCNT           0x1fb51600
+ravr GDMA2_TX_OKCNT_L          0x1fb51604
+ravr GDMA2_TX_OKCNT_H          0x1fb51780
+ravr GDMA2_TX_DROPCNT          0x1fb51608
+ravr GDMA2_TX_OKBYTE_CNT       0x1fb5160c
+ravr GDMA2_RX_OKCNT            0x1fb51648
+ravr GDMA2_RX_FCDROPCNT        0x1fb5164c
+ravr GDMA2_RX_RCDROPCNT        0x1fb51650
+ravr GDMA2_RX_OVDROPCNT        0x1fb51654
+ravr GDMA2_RX_ERRDROPCNT       0x1fb51658
+ravr GDMA2_RX_OKBYTECNT        0x1fb5165c

@@ -1,0 +1,136 @@
+#!/bin/sh
+
+ 
+
+devmem 0x1fb50018 32 0x3
+
+[ $# -ge 1 ] && sleep $1
+
+ 
+
+CDM1_TX_OK=$(devmem 0x1fb50580)
+CDM1_RXCPU_OK_CNT=$(devmem 0x1fb50590)
+CDM1_RXHWF_OK_CNT=$(devmem 0x1fb50594)
+CDM1_RXHWF_FAST_OK_CNT=$(devmem 0x1fb50598)
+CDM1_RXCPU_DROP_CNT=$(devmem 0x1fb505a0)
+CDM1_RXHWF_DROP_CNT=$(devmem 0x1fb505a4)
+CDM1_RXHWF_FAST_DROP_CNT=$(devmem 0x1fb505a8)
+
+GDM1_TX_OK_CNT_L=$(devmem 0x1fb50604)
+GDM1_TX_DROP_CNT=$(devmem 0x1fb50608)
+GDM1_TX_GET_CNT=$(devmem 0x1fb50600)
+GDM1_TX_OK_CNT_H=$(devmem 0x1fb50780)
+GDM1_RX_OK_CNT=$(devmem 0x1fb50648)
+GDM1_RX_FC_DROP_CNT=$(devmem 0x1fb5064c)
+GDM1_RX_RC_DROP_CNT=$(devmem 0x1fb50650)
+GDM1_RX_OVER_DROP_CNT=$(devmem 0x1fb50654)
+GDM1_RX_ERR_DROP_CNT=$(devmem 0x1fb50658)
+
+CDM2_TX_OK=$(devmem 0x1fb51580)
+CDM2_RXCPU_OK_CNT=$(devmem 0x1fb51590)
+CDM2_RXHWF_OK_CNT=$(devmem 0x1fb51594)
+CDM2_RXHWF_FAST_OK_CNT=$(devmem 0x1fb51598)
+CDM2_RXCPU_DROP_CNT=$(devmem 0x1fb515a0)
+CDM2_RXHWF_DROP_CNT=$(devmem 0x1fb515a4)
+CDM2_RXHWF_FAST_DROP_CNT=$(devmem 0x1fb515a8)
+
+GDM2_TX_GET_CNT=$(devmem 0x1fb51600)
+GDM2_TX_OK_CNT_L=$(devmem 0x1fb51604)
+GDM2_TX_OK_CNT_H=$(devmem 0x1fb51780)
+GDM2_TX_DROP_CNT=$(devmem 0x1fb51608)
+GDM2_RX_OK_CNT=$(devmem 0x1fb51648)
+GDM2_RX_FC_DROP_CNT=$(devmem 0x1fb5164c)
+GDM2_RX_RC_DROP_CNT=$(devmem 0x1fb51650)
+GDM2_RX_OVER_DROP_CNT=$(devmem 0x1fb51654)
+GDM2_RX_ERR_DROP_CNT=$(devmem 0x1fb51658)
+
+GDM4_TX_GET_CNT=$(devmem 0x1fb52600)
+GDM4_TX_OK_CNT_L=$(devmem 0x1fb52604)
+GDM4_TX_OK_CNT_H=$(devmem 0x1fb52780)
+GDM4_TX_DROP_CNT=$(devmem 0x1fb52608)
+GDM4_RX_OK_CNT=$(devmem 0x1fb52648)
+GDM4_RX_OK_CNT_H=$(devmem 0x1fb52790)
+GDM4_RX_FC_DROP_CNT=$(devmem 0x1fb5264c)
+GDM4_RX_RC_DROP_CNT=$(devmem 0x1fb52650)
+GDM4_RX_OVER_DROP_CNT=$(devmem 0x1fb52654)
+GDM4_RX_ERR_DROP_CNT=$(devmem 0x1fb52658)
+
+TDPC_P6=$(devmem 0x1fb5c600)
+TCRC_P6=$(devmem 0x1fb5c604)
+TUPC_P6=$(devmem 0x1fb5c608)
+TDPC_P1=$(devmem 0x1fb5c100)
+TCRC_P1=$(devmem 0x1fb5c104)
+TUPC_P1=$(devmem 0x1fb5c108)
+
+PSE_SHARE_USED_THD=$(devmem 0x1fb50094)
+PSE_ACTIVE_DROP_CNT=$(devmem 0x1fb5011c)
+PSE_DROP_CNT_0=$(devmem 0x1fb50120)
+PSE_DROP_CNT_1=$(devmem 0x1fb50124)
+PSE_DROP_CNT_2=$(devmem 0x1fb50128)
+PSE_DROP_CNT_3=$(devmem 0x1fb5012c)
+PSE_DROP_CNT_4=$(devmem 0x1fb50130)
+PSE_DROP_CNT_5=$(devmem 0x1fb50134)
+PSE_DROP_CNT_6=$(devmem 0x1fb50138)
+PSE_DROP_CNT_7=$(devmem 0x1fb50140)
+PSE_DROP_CNT_8=$(devmem 0x1fb50144)
+PSE_DROP_CNT_9=$(devmem 0x1fb50148)
+ 
+echo -e "CDM1_TX_OK:\t\t\t$CDM1_TX_OK"
+echo -e "CDM1_RXCPU_OK_CNT:\t\t$CDM1_RXCPU_OK_CNT"
+echo -e "CDM1_RXHWF_OK_CNT:\t\t$CDM1_RXHWF_OK_CNT"
+echo -e "CDM1_RXHWF_FAST_OK_CNT:\t\t$CDM1_RXHWF_FAST_OK_CNT"
+echo -e "CDM1_RXCPU_DROP_CNT:\t\t$CDM1_RXCPU_DROP_CNT"
+echo -e "CDM1_RXHWF_DROP_CNT:\t\t$CDM1_RXHWF_DROP_CNT"
+echo -e "CDM1_RXHWF_FAST_DROP_CNT:\t$CDM1_RXHWF_FAST_DROP_CNT"
+echo -e "GDM1_TX_GET_CNT:\t\t$GDM1_TX_GET_CNT"
+echo -e "GDM1_TX_OK_CNT_L:\t\t$GDM1_TX_OK_CNT_L"
+echo -e "GDM1_TX_OK_CNT_H:\t\t$GDM1_TX_OK_CNT_H"
+echo -e "GDM1_TX_DROP_CNT:\t\t$GDM1_TX_DROP_CNT"
+echo -e "GDM1_RX_OK_CNT:\t\t\t$GDM1_RX_OK_CNT"
+echo -e "GDM1_RX_FC_DROP_CNT:\t\t$GDM1_RX_FC_DROP_CNT"
+echo -e "GDM1_RX_RC_DROP_CNT:\t\t$GDM1_RX_RC_DROP_CNT"
+echo -e "GDM1_RX_OVER_DROP_CNT:\t\t$GDM1_RX_OVER_DROP_CNT"
+echo -e "GDM1_RX_ERR_DROP_CNT:\t\t$GDM1_RX_ERR_DROP_CNT"
+echo -e "CDM2_TX_OK:\t\t\t$CDM2_TX_OK"
+echo -e "CDM2_RXCPU_OK_CNT:\t\t$CDM2_RXCPU_OK_CNT"
+echo -e "CDM2_RXHWF_OK_CNT:\t\t$CDM2_RXHWF_OK_CNT"
+echo -e "CDM2_RXHWF_FAST_OK_CNT:\t\t$CDM2_RXHWF_FAST_OK_CNT"
+echo -e "CDM2_RXCPU_DROP_CNT:\t\t$CDM2_RXCPU_DROP_CNT"
+echo -e "CDM2_RXHWF_DROP_CNT:\t\t$CDM2_RXHWF_DROP_CNT"
+echo -e "CDM2_RXHWF_FAST_DROP_CNT:\t$CDM2_RXHWF_FAST_DROP_CNT"
+echo -e "GDM2_TX_GET_CNT:\t\t$GDM2_TX_GET_CNT"
+echo -e "GDM2_TX_OK_CNT_L:\t\t$GDM2_TX_OK_CNT_L"
+echo -e "GDM2_TX_OK_CNT_H:\t\t$GDM2_TX_OK_CNT_H"
+echo -e "GDM2_TX_DROP_CNT:\t\t$GDM2_TX_DROP_CNT"
+echo -e "GDM2_RX_OK_CNT:\t\t\t$GDM2_RX_OK_CNT"
+echo -e "GDM2_RX_FC_DROP_CNT:\t\t$GDM2_RX_FC_DROP_CNT"
+echo -e "GDM2_RX_RC_DROP_CNT:\t\t$GDM2_RX_RC_DROP_CNT"
+echo -e "GDM2_RX_OVER_DROP_CNT:\t\t$GDM2_RX_OVER_DROP_CNT"
+echo -e "GDM2_RX_ERR_DROP_CNT:\t\t$GDM2_RX_ERR_DROP_CNT"
+echo -e "GDM4_TX_GET_CNT:\t\t$GDM4_TX_GET_CNT"
+echo -e "GDM4_TX_OK_CNT_L:\t\t$GDM4_TX_OK_CNT_L"
+echo -e "GDM4_TX_OK_CNT_H:\t\t$GDM4_TX_OK_CNT_H"
+echo -e "GDM4_TX_DROP_CNT:\t\t$GDM4_TX_DROP_CNT"
+echo -e "GDM4_RX_OK_CNT:\t\t\t$GDM4_RX_OK_CNT"
+echo -e "GDM4_RX_FC_DROP_CNT:\t\t$GDM4_RX_FC_DROP_CNT"
+echo -e "GDM4_RX_RC_DROP_CNT:\t\t$GDM4_RX_RC_DROP_CNT"
+echo -e "GDM4_RX_OVER_DROP_CNT:\t\t$GDM4_RX_OVER_DROP_CNT"
+echo -e "GDM4_RX_ERR_DROP_CNT:\t\t$GDM4_RX_ERR_DROP_CNT"
+echo -e "TDPC_P6:\t\t\t$TDPC_P6"
+echo -e "TCRC_P6:\t\t\t$TCRC_P6"
+echo -e "TUPC_P6:\t\t\t$TUPC_P6"
+echo -e "TDPC_P1:\t\t\t$TDPC_P1"
+echo -e "TCRC_P1:\t\t\t$TCRC_P1"
+echo -e "TUPC_P1:\t\t\t$TUPC_P1"
+echo -e "PSE_SHARE_USED_THD:\t\t$PSE_SHARE_USED_THD"
+echo -e "PSE_ACTIVE_DROP_CNT:\t\t$PSE_ACTIVE_DROP_CNT"
+echo -e "PSE_DROP_CNT_0:\t\t\t$PSE_DROP_CNT_0"
+echo -e "PSE_DROP_CNT_1:\t\t\t$PSE_DROP_CNT_1"
+echo -e "PSE_DROP_CNT_2:\t\t\t$PSE_DROP_CNT_2"
+echo -e "PSE_DROP_CNT_3:\t\t\t$PSE_DROP_CNT_3"
+echo -e "PSE_DROP_CNT_4:\t\t\t$PSE_DROP_CNT_4"
+echo -e "PSE_DROP_CNT_5\t\t\t$PSE_DROP_CNT_5"
+echo -e "PSE_DROP_CNT_6:\t\t\t$PSE_DROP_CNT_6"
+echo -e "PSE_DROP_CNT_7:\t\t\t$PSE_DROP_CNT_7"
+echo -e "PSE_DROP_CNT_8:\t\t\t$PSE_DROP_CNT_8"
+echo -e "PSE_DROP_CNT_9:\t\t\t$PSE_DROP_CNT_9"

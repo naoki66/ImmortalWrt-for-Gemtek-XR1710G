@@ -1,0 +1,36 @@
+From 2e229771543b2b20e1fe29da00df80c917469449 Mon Sep 17 00:00:00 2001
+From: Aleksander Jan Bajkowski <olek2@wp.pl>
+Date: Fri, 2 Jan 2026 12:30:06 +0100
+Subject: [PATCH] net: phy: mediatek: enable interrupts on AN7581
+
+Interrupts work just like on MT7988.
+
+Suggested-by: Benjamin Larsson <benjamin.larsson@genexis.eu>
+Signed-off-by: Aleksander Jan Bajkowski <olek2@wp.pl>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Link: https://patch.msgid.link/20260102113222.3519900-1-olek2@wp.pl
+Signed-off-by: Jakub Kicinski <kuba@kernel.org>
+---
+ drivers/net/phy/mediatek/mtk-ge-soc.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+--- a/drivers/net/phy/mediatek/mtk-ge-soc.c
++++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
+@@ -1187,6 +1187,8 @@ static struct phy_driver mtk_socphy_driv
+ 		PHY_ID_MATCH_EXACT(MTK_GPHY_ID_AN7581),
+ 		.name		= "Airoha AN7581 PHY",
+ 		.config_init    = an7581_phy_config_init,
++		.config_intr	= genphy_no_config_intr,
++		.handle_interrupt = genphy_handle_interrupt_no_ack,
+ 		.probe		= an7581_phy_probe,
+ 		.led_blink_set	= mt798x_phy_led_blink_set,
+ 		.led_brightness_set = mt798x_phy_led_brightness_set,
+@@ -1196,6 +1196,8 @@
+ 		.led_hw_control_set = mt798x_phy_led_hw_control_set,
+ 		.led_hw_control_get = mt798x_phy_led_hw_control_get,
+ 		.led_polarity_set = an7581_phy_led_polarity_set,
++		.read_page	= mtk_phy_read_page,
++		.write_page	= mtk_phy_write_page,
+ 	},
+ 	{
+ 		PHY_ID_MATCH_EXACT(MTK_GPHY_ID_AN7583),

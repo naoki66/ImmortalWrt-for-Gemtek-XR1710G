@@ -1,0 +1,30 @@
+From fbd00e8736c54eda4af650ffc274f02f1c431a73 Mon Sep 17 00:00:00 2001
+From: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
+Date: Wed, 24 Sep 2025 12:56:55 +0800
+Subject: [PATCH] net: ethernet: mtk_ppe: change TCP UDP aging out time
+The PPE will age out the entry earlier than the flow offload garbage
+collection (GC) work when traffic stops for a duration longer than
+the PPE TCP/UDP aging out time. During this period, the flow offload
+GC work does not teardown this flow rule. As a result, the flow offload
+cannot immediately reallocate a new flow rule when the traffic resumes.
+Signed-off-by: Bo-Cun Chen <bc-bocun.chen@mediatek.com>
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -112,12 +112,12 @@
+ 			      PPE_BIND_AGE0_DELTA_NON_L4 |
+ 			      PPE_BIND_AGE0_DELTA_UDP,
+ 			      FIELD_PREP(PPE_BIND_AGE0_DELTA_NON_L4, 1) |
+-			      FIELD_PREP(PPE_BIND_AGE0_DELTA_UDP, 12));
++			      FIELD_PREP(PPE_BIND_AGE0_DELTA_UDP, 30));
+ 		airoha_fe_rmw(eth, REG_PPE_BND_AGE1(i),
+ 			      PPE_BIND_AGE1_DELTA_TCP_FIN |
+ 			      PPE_BIND_AGE1_DELTA_TCP,
+ 			      FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP_FIN, 1) |
+-			      FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP, 7));
++			      FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP, 30));
+ 
+ 		airoha_fe_rmw(eth, REG_PPE_TB_HASH_CFG(i),
+ 			      PPE_SRAM_TABLE_EN_MASK |

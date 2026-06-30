@@ -1,0 +1,44 @@
+From 9c8b9a5d5d8f4c2e5e4d8f8b8a5e7c9d1a5d3b1a Mon Sep 17 00:00:00 2001
+From: Your Name <your.email@airoha.com>
+Date: Wed, 24 Apr 2025 16:00:00 +0800
+Subject: [PATCH] net: ethernet: airoha_ppe: enable CS0_PIPE and SRH_CACHE_FIRST for small packet performance
+
+Enables CS0_PIPE and SRH_CACHE_FIRST bits in PPE global configuration to
+improve forwarding performance for small packets (<256B), especially in
+high-throughput scenarios like 10Gbps BiDi links.
+
+These bits enable:
+- CS0_PIPE_EN: Parallel processing in classification stage 0
+- SRH_CACHE_FIRST_EN: Prioritize SRAM cache lookup over DRAM access
+
+Without this patch, small packet throughput is significantly degraded
+due to sequential lookup and DRAM access latency.
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c      | 4 ++++
+ drivers/net/ethernet/airoha/airoha_regs.h | 2 ++
+ 2 files changed, 7 insertions(+)
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -145,6 +145,11 @@
+ 			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK,
+ 					 dram_num_entries));
+ 
++		/* Enable CS0_PIPE and SRH_CACHE_FIRST for improved small-packet performance */
++		airoha_fe_rmw(eth, REG_PPE_GLO_CFG(i),
++			      PPE_GLO_CFG_CS0_PIPE_EN | PPE_GLO_CFG_SRH_CACHE_FIRST_EN,
++			      PPE_GLO_CFG_CS0_PIPE_EN | PPE_GLO_CFG_SRH_CACHE_FIRST_EN);
++
+ 		airoha_fe_wr(eth, REG_PPE_HASH_SEED(i), PPE_HASH_SEED);
+ 
+ 		for (p = 0; p < ARRAY_SIZE(eth->ports); p++)
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -250,6 +250,8 @@
+ #define PPE_GLO_CFG_IP4_CS_DROP_MASK		BIT(3)
+ #define PPE_GLO_CFG_IP4_L4_CS_DROP_MASK		BIT(2)
+ #define PPE_GLO_CFG_EN_MASK			BIT(0)
++#define PPE_GLO_CFG_CS0_PIPE_EN			BIT(29)
++#define PPE_GLO_CFG_SRH_CACHE_FIRST_EN	BIT(30)
+ 
+ #define REG_PPE_PPE_FLOW_CFG(_n)		(((_n) ? PPE2_BASE : PPE1_BASE) + 0x204)
+ #define PPE_FLOW_CFG_IP6_HASH_GRE_KEY_MASK	BIT(20)

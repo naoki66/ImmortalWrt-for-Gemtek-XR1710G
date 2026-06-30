@@ -59,29 +59,39 @@ define Device/airoha_an7581-evb
 endef
 TARGET_DEVICES += airoha_an7581-evb
 
-define Device/airoha_an7581-evb-emmc-eagle
+define Device/airoha_an7581-evb-emmc
   DEVICE_VENDOR := Airoha
-  DEVICE_MODEL := AN7581 Evaluation Board (eMMC + Eagle)
-  DEVICE_DTS := an7581-evb-emmc-eagle
-  DEVICE_PACKAGES := kmod-i2c-an7581 airoha-en7581-mt7996-npu-firmware \
-		    kmod-mt7996-firmware wpad-basic-mbedtls
+  DEVICE_MODEL := AN7581 Evaluation Board (EMMC)
+  DEVICE_DTS := an7581-evb-emmc
+  DEVICE_PACKAGES := kmod-i2c-an7581
   ARTIFACT/preloader.bin := an7581-preloader rfb
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot rfb
   ARTIFACTS := preloader.bin bl31-uboot.fip
 endef
-TARGET_DEVICES += airoha_an7581-evb-emmc-eagle
+TARGET_DEVICES += airoha_an7581-evb-emmc
 
-define Device/airoha_an7581-evb-emmc-kite
-  DEVICE_VENDOR := Airoha
-  DEVICE_MODEL := AN7581 Evaluation Board (eMMC + Kite)
-  DEVICE_DTS := an7581-evb-emmc-kite
-  DEVICE_PACKAGES := kmod-i2c-an7581 airoha-en7581-npu-firmware \
-		    kmod-mt7992-firmware wpad-basic-mbedtls
-  ARTIFACT/preloader.bin := an7581-preloader rfb
-  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot rfb
-  ARTIFACTS := preloader.bin bl31-uboot.fip
+define Device/gemtek_17xx-common
+  DEVICE_PACKAGES := airoha-en7581-mt7996-npu-firmware \
+		    fitblk kmod-i2c-an7581 kmod-hwmon-nct7802 \
+		    kmod-mt7996-firmware kmod-phy-realtek rtl8261n-firmware \
+		    wpad-basic-mbedtls kmod-tcp-bbr \
+			default-settings-chn luci-compat \
+			luci-app-airoha-npu luci-app-w1700k-fancontrol luci-app-mlo \
+			openssh-sftp-server luci-app-openclash
+  UBINIZE_OPTS := -E 5
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  UBOOTENV_IN_UBI := 1
+  KERNEL_IN_UBI := 1
+  KERNEL := kernel-bin | gzip
+  KERNEL_INITRAMFS := kernel-bin | lzma | \
+	fit lzma $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb with-initrd | pad-to 128k
+  KERNEL_INITRAMFS_SUFFIX := -recovery.itb
+  IMAGES := sysupgrade.itb
+  IMAGE/sysupgrade.itb := append-kernel | fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | append-metadata
+  ARTIFACTS := chainload-uboot.itb
+  SOC := an7581
 endef
-TARGET_DEVICES += airoha_an7581-evb-emmc-kite
 
 define Device/gemtek_w1700k-ubi
   DEVICE_VENDOR := Gemtek
@@ -97,13 +107,41 @@ define Device/gemtek_w1700k-ubi
   DEVICE_ALT2_MODEL := W1700K
   DEVICE_ALT2_VARIANT := UBI
   DEVICE_DTS := an7581-w1700k-ubi
-  DEVICE_COMPAT_VERSION := 2.0
-  DEVICE_COMPAT_MESSAGE := Partition table has been changed to cooperate \
-       with the vendor bootloader with regard to the BMT/BBT partition at \
-       the end of flash. A reinstall including corrected chainloader is needed.
-  DEVICE_PACKAGES := airoha-en7581-mt7996-npu-firmware fitblk kmod-i2c-an7581 \
-		    kmod-hwmon-nct7802 kmod-mt7996-firmware wpad-basic-mbedtls \
-		    rtl8261n-firmware
+  ARTIFACT/chainload-uboot.itb := an7581-chainloader gemtek_w1700k
+  $(Device/gemtek_17xx-common)
+endef
+TARGET_DEVICES += gemtek_w1700k-ubi
+
+define Device/gemtek_xr1710g-ubi
+  DEVICE_VENDOR := Gemtek
+  DEVICE_MODEL := XR1710G
+  DEVICE_VARIANT := UBI
+  DEVICE_ALT0_VENDOR := Brightspeed
+  DEVICE_ALT0_MODEL := XR1710G
+  DEVICE_ALT0_VARIANT := UBI
+  DEVICE_DTS := an7581-xr1710g-ubi
+  ARTIFACT/chainload-uboot.itb := an7581-chainloader gemtek_xr1710g
+  $(Device/gemtek_17xx-common)
+endef
+TARGET_DEVICES += gemtek_xr1710g-ubi
+
+define Device/gemtek_xg2010g-ubi
+  DEVICE_VENDOR := Gemtek
+  DEVICE_MODEL := XG2010G
+  DEVICE_VARIANT := UBI
+  DEVICE_ALT0_VENDOR := CenturyLink
+  DEVICE_ALT0_MODEL := XG2010G
+  DEVICE_ALT0_VARIANT := UBI
+  DEVICE_ALT1_VENDOR := Lumen
+  DEVICE_ALT1_MODEL := XG2010G
+  DEVICE_ALT1_VARIANT := UBI
+  DEVICE_ALT2_VENDOR := Quantum Fiber
+  DEVICE_ALT2_MODEL := XG2010G
+  DEVICE_ALT2_VARIANT := UBI
+  DEVICE_DTS := an7581-xg2010g-ubi
+  DEVICE_PACKAGES := fitblk kmod-i2c-an7581 \
+		    kmod-phy-airoha-en8811h kmod-phy-realtek rtl8261n-firmware \
+			kmod-usb2 kmod-usb-storage-uas
   UBINIZE_OPTS := -E 5
   BLOCKSIZE := 128k
   PAGESIZE := 2048
@@ -116,10 +154,10 @@ define Device/gemtek_w1700k-ubi
   IMAGES := sysupgrade.itb
   IMAGE/sysupgrade.itb := append-kernel | fit gzip $$(KDIR)/image-$$(firstword $$(DEVICE_DTS)).dtb external-static-with-rootfs | append-metadata
   ARTIFACTS := chainload-uboot.itb
-  ARTIFACT/chainload-uboot.itb := an7581-chainloader gemtek_w1700k
+  ARTIFACT/chainload-uboot.itb := an7581-chainloader gemtek_xg2010g
   SOC := an7581
 endef
-TARGET_DEVICES += gemtek_w1700k-ubi
+TARGET_DEVICES += gemtek_xg2010g-ubi
 
 define Device/nokia_valyrian
   DEVICE_VENDOR := Nokia
@@ -134,3 +172,24 @@ define Device/nokia_valyrian
   ARTIFACTS := preloader.bin bl31-uboot.fip
 endef
 TARGET_DEVICES += nokia_valyrian
+
+define Device/nokia_xg-040g-md
+  $(call Device/FitImageLzma)
+  DEVICE_VENDOR := Nokia
+  DEVICE_MODEL := Bell XG-040G-MD
+  DEVICE_VARIANT := Router Mode
+  DEVICE_DTS := an7581-nokia_xg-040g-md
+  SOC := an7581
+  KERNEL_LOADADDR := 0x80088000
+  BLOCKSIZE := 128k
+  PAGESIZE := 2048
+  KERNEL_SIZE := 8192k
+  IMAGE_SIZE := 261120k
+  KERNEL_IN_UBI := 1
+  UBINIZE_OPTS := -s 2048
+  IMAGES := factory.bin sysupgrade.bin
+  IMAGE/factory.bin := append-kernel | pad-to $$$$(KERNEL_SIZE) | append-ubi
+  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
+  DEVICE_PACKAGES := kmod-phy-airoha-en8811h kmod-i2c-an7581 kmod-leds-gpio kmod-gpio-button-hotplug ubi-utils usbutils kmod-usb2 kmod-usb3 kmod-usb-storage-uas
+endef
+TARGET_DEVICES += nokia_xg-040g-md

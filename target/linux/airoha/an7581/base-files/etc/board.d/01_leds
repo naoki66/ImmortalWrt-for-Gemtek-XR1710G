@@ -19,6 +19,11 @@ gemtek,w1700k-ubi)
 	ucidef_set_led_netdev "lan4-yellow" "lan4" "yellow:lan-4" "lan4" "link_10 link_100"
 	ucidef_set_led_netdev "lan4-green" "lan4" "green:lan-4" "lan4" "link_1000 tx rx"
 	;;
+nokia,xg-040g-md)
+	ucidef_set_led_netdev "internet" "INTERNET" "green:internet" "lan1"
+	ucidef_set_led_usbport "usb1" "USB 3.0" "green:usb-1" "1-1"
+	ucidef_set_led_usbport "usb2" "USB 2.0" "green:usb-2" "2-1"
+	;;
 esac
 
 board_config_flush

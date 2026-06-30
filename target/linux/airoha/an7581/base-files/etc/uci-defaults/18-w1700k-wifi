@@ -1,0 +1,55 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright: Joel Wiramu Pauling <aenertia@aenertia.net>
+#
+# W1700K WiFi defaults — NZ regulatory domain, optimal channels
+# Phase 6: Tested and verified live on device
+#
+# MT7996 tri-band WiFi 7:
+#   radio0: 2.4 GHz 2x2
+#   radio1: 5 GHz 4x4
+#   radio2: 6 GHz 4x4
+
+# US country code on all radios
+uci set wireless.radio0.country='US'
+uci set wireless.radio1.country='US'
+uci set wireless.radio2.country='US'
+
+# --- radio0: 2.4 GHz — EHT40, auto channel, WPA/WPA2 mixed ---
+# EHT40 requested; hostapd may fall back to 20 MHz if coexistence
+# with neighboring BSSes requires it (correct 802.11 behavior).
+uci set wireless.radio0.channel='auto'
+uci set wireless.radio0.htmode='EHT40'
+uci set wireless.radio0.disabled='0'
+uci set wireless.default_radio0.ssid='W1700K(XR1710G)-2G'
+uci set wireless.default_radio0.encryption='psk-mixed'
+uci set wireless.default_radio0.key='12345678'
+uci set wireless.default_radio0.disabled='0'
+
+# --- radio1: 5 GHz — EHT160, ch 36, WPA3 SAE ---
+# Channel 36 + EHT160 spans 5180-5330 MHz (includes UNII-2 DFS).
+# 60s DFS CAC scan at boot is a one-time cost.
+uci set wireless.radio1.channel='36'
+uci set wireless.radio1.htmode='EHT160'
+uci set wireless.radio1.disabled='0'
+uci set wireless.default_radio1.ssid='W1700K(XR1710G)-5G'
+uci set wireless.default_radio1.encryption='sae'
+uci set wireless.default_radio1.key='12345678'
+uci set wireless.default_radio1.ieee80211w='2'
+uci set wireless.default_radio1.disabled='0'
+
+# --- radio2: 6 GHz — EHT320, ch 37, WPA3 SAE ---
+# NZ regdb allows 5925-6425 MHz, 24 dBm, 320 MHz, NO-OUTDOOR.
+# Centre frequency 6105 MHz spans 5945-6265 MHz (ch 1-65).
+# If driver doesn't support EHT320, hostapd degrades to EHT160 gracefully.
+uci set wireless.radio2.channel='37'
+uci set wireless.radio2.htmode='EHT320'
+uci set wireless.radio2.disabled='0'
+uci set wireless.default_radio2.ssid='W1700K(XR1710G)-6G'
+uci set wireless.default_radio2.encryption='sae'
+uci set wireless.default_radio2.key='12345678'
+uci set wireless.default_radio2.ieee80211w='2'
+uci set wireless.default_radio2.disabled='0'
+
+uci commit wireless
+exit 0

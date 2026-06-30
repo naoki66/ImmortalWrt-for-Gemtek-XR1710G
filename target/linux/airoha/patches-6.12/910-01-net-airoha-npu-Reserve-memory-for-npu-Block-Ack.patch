@@ -1,0 +1,30 @@
+From 50504192528bd542309de475b780d144072f41c3 Mon Sep 17 00:00:00 2001
+Message-ID: <50504192528bd542309de475b780d144072f41c3.1761318122.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Fri, 24 Oct 2025 17:01:51 +0200
+Subject: [PATCH] net: airoha: npu: Reserve memory for npu Block Ack
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_npu.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_npu.c b/drivers/net/ethernet/airoha/airoha_npu.c
+index 68b7f9684dc7..93e7e648c7af 100644
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -519,6 +519,11 @@ static int airoha_npu_wlan_init_memory(struct airoha_npu *npu)
+ 	if (err)
+ 		return err;
+ 
++	cmd = WLAN_FUNC_SET_WAIT_DRAM_BA_NODE_ADDR;
++	err = airoha_npu_wlan_set_reserved_memory(npu, 0, "ba", cmd);
++	if (err)
++		return err;
++
+ 	cmd = WLAN_FUNC_SET_WAIT_IS_FORCE_TO_CPU;
+ 	return airoha_npu_wlan_msg_send(npu, 0, cmd, &val, sizeof(val),
+ 					GFP_KERNEL);
+-- 
+2.51.0
+
