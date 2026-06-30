@@ -70,6 +70,11 @@ jobs:
           git pull origin master
           cd ..
 
+      - name: Stage Submodule Changes
+        if: github.event.inputs.sync_type == 'all' || github.event.inputs.sync_type == 'uboot' || github.event_name == 'schedule'
+        run: |
+          git add u-boot
+
       - name: Commit Changes
         id: commit
         run: |
