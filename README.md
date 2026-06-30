@@ -97,6 +97,57 @@ ssh root@192.168.1.1 sysupgrade /tmp/openwrt-airoha-an7581-gemtek_xr1710g-ubi-sq
 
 > ⚠️ 首次登录后请修改默认密码和 WiFi 配置
 
+## U-Boot
+
+本仓库包含 XR1710G 专用的 U-Boot 分支作为子模块，支持 HTTP Recovery 功能：
+
+### U-Boot 特性
+
+- ✅ 10GbE 支持
+- ✅ HTTP Recovery (网页恢复模式)
+- ✅ 内置 DHCP 服务器
+- ✅ 恢复页面地址: `http://192.168.255.1`
+
+### 进入 HTTP Recovery
+
+1. 将 PC 连接到 10GbE 网口，设置为 DHCP 自动获取
+2. 上电开机
+3. 10GbE 网口 LED 开始闪烁后，按住 reset 按钮
+4. 状态 LED 从红色变为流动模式，表示进入恢复模式
+5. 在浏览器中打开 `http://192.168.255.1`
+
+### 编译 U-Boot
+
+```bash
+# 进入子模块
+cd u-boot
+
+# 设置交叉编译工具链
+export CROSS_COMPILE=aarch64-none-linux-gnu-
+
+# 配置 XR1710G
+make xr1710g_defconfig
+
+# 编译
+make -j$(nproc)
+
+# 生成链加载器镜像
+./build-chainloader-fit.sh
+```
+
+### 刷写 U-Boot
+
+```bash
+# 将 xr1710g-chainloader-slot.bin 复制到设备 /tmp
+scp out/xr1710g-chainloader-slot.bin root@192.168.1.1:/tmp/
+
+# 在设备上刷写 chainloader 分区
+flash_erase /dev/mtd2 0 8
+nandwrite -p /dev/mtd2 /tmp/xr1710g-chainloader-slot.bin
+sync
+reboot
+```
+
 ## 上游仓库
 
 本仓库基于以下上游项目：
@@ -104,6 +155,7 @@ ssh root@192.168.1.1 sysupgrade /tmp/openwrt-airoha-an7581-gemtek_xr1710g-ubi-sq
 - **ImmortalWrt 官方**: [https://github.com/immortalwrt/immortalwrt](https://github.com/immortalwrt/immortalwrt)
 - **YYH2913 设备源**: [https://github.com/YYH2913/openwrt](https://github.com/YYH2913/openwrt)
 - **lvcdy XR1710G**: [https://github.com/lvcdy/openwrt_xr1710g](https://github.com/lvcdy/openwrt_xr1710g)
+- **YYH2913 U-Boot**: [https://github.com/YYH2913/http-uboot-xr1710g](https://github.com/YYH2913/http-uboot-xr1710g)
 
 ## 同步流程
 

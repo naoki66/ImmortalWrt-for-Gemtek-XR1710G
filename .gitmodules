@@ -1,0 +1,3 @@
+[submodule "u-boot"]
+	path = u-boot
+	url = https://github.com/YYH2913/http-uboot-xr1710g.git

@@ -15,6 +15,7 @@ on:
           - immortalwrt
           - yyh_source
           - lvcdy_source
+          - uboot
 
 jobs:
   sync:
@@ -25,6 +26,7 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          submodules: true
 
       - name: Configure Git
         run: |
@@ -60,6 +62,14 @@ jobs:
           git checkout temp_lvcdy -- target/linux/airoha/
           git branch -D temp_lvcdy
 
+      - name: Sync U-Boot Submodule
+        if: github.event.inputs.sync_type == 'all' || github.event.inputs.sync_type == 'uboot' || github.event_name == 'schedule'
+        run: |
+          cd u-boot
+          git checkout master
+          git pull origin master
+          cd ..
+
       - name: Commit Changes
         id: commit
         run: |
@@ -67,7 +77,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "no_changes=true" >> "$GITHUB_OUTPUT"
           else
-            git commit -m "Sync upstream: ImmortalWrt + XR1710G device sources"
+            git commit -m "Sync upstream: ImmortalWrt + XR1710G device sources + U-Boot"
             echo "no_changes=false" >> "$GITHUB_OUTPUT"
           fi
 

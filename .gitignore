@@ -25,6 +25,8 @@ public-key.pem
 *.orig
 *.rej
 *~
+u-boot/out/
+u-boot/build/
 .#*
 *#
 .emacs.desktop*
