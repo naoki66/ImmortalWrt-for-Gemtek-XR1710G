@@ -12,7 +12,7 @@
 | 内存 | 2GB DDR4 |
 | 闪存 | 256MB NAND |
 | WiFi | MT7996 WiFi 7 三频 (2.4G/5G/6G) |
-| 网口 | 1× 10G SFP+ (WAN) + 4× 2.5G (LAN) |
+| 网口 | 1× 10G (WAN) +1× 10G (LAN) ，2× 1G (LAN) |
 | 风扇 | NCT7802 温控风扇 |
 
 ## 功能特性
