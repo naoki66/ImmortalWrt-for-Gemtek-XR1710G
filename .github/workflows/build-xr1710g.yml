@@ -1,0 +1,164 @@
+name: Build XR1710G Firmware
+
+on:
+  workflow_dispatch:
+    inputs:
+      device:
+        description: '目标设备'
+        required: true
+        default: 'gemtek_xr1710g-ubi'
+        type: choice
+        options:
+          - gemtek_xr1710g-ubi
+          - gemtek_w1700k-ubi
+          - gemtek_xg2010g-ubi
+      thread_count:
+        description: '编译线程数'
+        required: false
+        default: 'auto'
+        type: string
+      upload_to_release:
+        description: '上传到 Release'
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: '0 0 */14 * *'
+
+env:
+  DEVICE: gemtek_xr1710g-ubi
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          submodules: true
+
+      - name: Setup build environment
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            clang \
+            gcc \
+            g++ \
+            binutils \
+            bzip2 \
+            gawk \
+            gettext \
+            git \
+            libncurses-dev \
+            libssl-dev \
+            python3 \
+            python3-setuptools \
+            rsync \
+            unzip \
+            wget \
+            xsltproc \
+            zlib1g-dev \
+            file \
+            which \
+            perl \
+            sed \
+            make
+
+      - name: Install feeds
+        run: |
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Configure build
+        run: |
+          if [ -f .config ]; then
+            cp .config .config.bak
+          fi
+
+          cat >> .config << 'EOF'
+          CONFIG_TARGET_airoha=y
+          CONFIG_TARGET_airoha_an7581=y
+          CONFIG_TARGET_airoha_an7581_DEVICE_${{ inputs.device || env.DEVICE }}=y
+          EOF
+
+          make defconfig
+
+      - name: Download sources
+        run: |
+          make download -j$(nproc)
+
+      - name: Build firmware
+        id: build
+        run: |
+          if [ "${{ inputs.thread_count }}" = "auto" ] || [ -z "${{ inputs.thread_count }}" ]; then
+            THREADS=$(nproc)
+          else
+            THREADS=${{ inputs.thread_count }}
+          fi
+
+          echo "Using $THREADS threads"
+          make -j$THREADS world 2>&1 | tee build.log
+
+          if ls bin/targets/airoha/an7581/*.itb bin/targets/airoha/an7581/*.bin 1>/dev/null 2>&1; then
+            echo "build_success=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_success=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Show build artifacts
+        if: always()
+        run: |
+          echo "=== Build directory ==="
+          ls -lh bin/targets/airoha/an7581/ 2>/dev/null || echo "No bin directory"
+          echo ""
+          echo "=== Packages count ==="
+          ls bin/targets/airoha/an7581/packages/*.ipk 2>/dev/null | wc -l || echo "No packages"
+
+      - name: Upload firmware artifacts
+        if: steps.build.outputs.build_success == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: xr1710g-firmware
+          path: |
+            bin/targets/airoha/an7581/*.itb
+            bin/targets/airoha/an7581/*.bin
+            bin/targets/airoha/an7581/sha256sums
+          retention-days: 30
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
+
+      - name: Create Release
+        if: steps.build.outputs.build_success == 'true' && (inputs.upload_to_release == true || github.event_name == 'schedule')
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: XR1710G Firmware - Build ${{ github.run_number }}
+          body: |
+            ## XR1710G 固件编译 ${{ github.run_number }}
+
+            **设备**: ${{ inputs.device || env.DEVICE }}
+            **构建时间**: ${{ github.run_started_at }}
+            **Commit**: ${{ github.sha }}
+
+            ### 文件说明
+            - `*-sysupgrade.itb` - 系统升级固件
+            - `*chainload-uboot.itb` - U-Boot 链加载器
+            - `sha256sums` - 校验文件
+          files: |
+            bin/targets/airoha/an7581/*.itb
+            bin/targets/airoha/an7581/*.bin
+            bin/targets/airoha/an7581/sha256sums
+          draft: false
+          prerelease: true
