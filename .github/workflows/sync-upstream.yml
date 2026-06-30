@@ -1,0 +1,79 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: '0 0 */7 * *'
+  workflow_dispatch:
+    inputs:
+      sync_type:
+        description: '同步类型'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - immortalwrt
+          - yyh_source
+          - lvcdy_source
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add Upstream Remotes
+        run: |
+          git remote add upstream https://github.com/immortalwrt/immortalwrt.git
+          git remote add yyh_source https://github.com/YYH2913/openwrt.git
+          git remote add lvcdy_source https://github.com/lvcdy/openwrt_xr1710g.git
+          git fetch --all
+
+      - name: Sync ImmortalWrt Upstream
+        if: github.event.inputs.sync_type == 'all' || github.event.inputs.sync_type == 'immortalwrt' || github.event_name == 'schedule'
+        run: |
+          git checkout master
+          git merge upstream/master --no-edit --allow-unrelated-histories 2>/dev/null || git merge upstream/master --no-edit
+
+      - name: Sync YYH Source
+        if: github.event.inputs.sync_type == 'all' || github.event.inputs.sync_type == 'yyh_source' || github.event_name == 'schedule'
+        run: |
+          git checkout -b temp_yyh yyh_source/main 2>/dev/null || git checkout temp_yyh && git reset --hard yyh_source/main
+          git checkout master
+          git checkout temp_yyh -- target/linux/airoha/
+          git branch -D temp_yyh
+
+      - name: Sync LVCdy Source
+        if: github.event.inputs.sync_type == 'all' || github.event.inputs.sync_type == 'lvcdy_source' || github.event_name == 'schedule'
+        run: |
+          git checkout -b temp_lvcdy lvcdy_source/main 2>/dev/null || git checkout temp_lvcdy && git reset --hard lvcdy_source/main
+          git checkout master
+          git checkout temp_lvcdy -- target/linux/airoha/
+          git branch -D temp_lvcdy
+
+      - name: Commit Changes
+        id: commit
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "no_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Sync upstream: ImmortalWrt + XR1710G device sources"
+            echo "no_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push Changes
+        if: steps.commit.outputs.no_changes == 'false'
+        uses: ad-m/github-push-action@master
+        with:
+          branch: master
+          github_token: ${{ secrets.GITHUB_TOKEN }}
