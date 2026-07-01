@@ -33,7 +33,7 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  			return -ENOMEM;
  	}
  
-+	ppe->foe_check_time = devm_kzalloc(eth->dev, PPE_NUM_ENTRIES,
++	ppe->foe_check_time = devm_kzalloc(eth->dev, PPE_SRAM_NUM_ENTRIES + PPE_DRAM_NUM_ENTRIES,
 +					   GFP_KERNEL);
 +	if (!ppe->foe_check_time)
 +		return -ENOMEM;

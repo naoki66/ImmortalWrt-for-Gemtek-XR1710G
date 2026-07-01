@@ -106,7 +106,7 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  
 -	if (airoha_ppe2_is_enabled(eth)) {
 +	if (airoha_ppe_is_enabled(eth, 1)) {
- 		sram_num_entries = PPE1_SRAM_NUM_ENTRIES;
+ 		sram_num_entries = PPE_SRAM_NUM_ENTRIES / 2;
  		sram_num_stats_entries =
  			airoha_ppe_get_num_stats_entries(ppe);
 @@ -518,7 +521,7 @@ static int airoha_ppe_foe_get_flow_stats
@@ -124,7 +124,7 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  
 -		ppe2 = airoha_ppe2_is_enabled(ppe->eth) &&
 +		ppe2 = airoha_ppe_is_enabled(ppe->eth, 1) &&
- 		       hash >= PPE1_SRAM_NUM_ENTRIES;
+ 		       hash >= PPE_SRAM_NUM_ENTRIES / 2;
  		airoha_fe_wr(ppe->eth, REG_PPE_RAM_CTRL(ppe2),
  			     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
 @@ -691,7 +694,7 @@ static int airoha_ppe_foe_commit_entry(s
@@ -133,7 +133,7 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  		dma_addr_t addr = ppe->foe_dma + hash * sizeof(*hwe);
 -		bool ppe2 = airoha_ppe2_is_enabled(eth) &&
 +		bool ppe2 = airoha_ppe_is_enabled(eth, 1) &&
- 			    hash >= PPE1_SRAM_NUM_ENTRIES;
+ 			    hash >= PPE_SRAM_NUM_ENTRIES / 2;
  
  		err = npu->ops.ppe_foe_commit_entry(npu, addr, sizeof(*hwe),
 @@ -1286,7 +1289,7 @@ static int airoha_ppe_flush_sram_entries
