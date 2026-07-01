@@ -17,18 +17,18 @@ due to sequential lookup and DRAM access latency.
  drivers/net/ethernet/airoha/airoha_ppe.c      | 4 ++++
  drivers/net/ethernet/airoha/airoha_regs.h | 2 ++
  2 files changed, 7 insertions(+)
+
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -145,6 +145,11 @@
- 			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK,
+@@ -131,6 +131,11 @@ static void airoha_ppe_hw_init(struct ai
  					 dram_num_entries));
  
+ 		airoha_fe_wr(eth, REG_PPE_HASH_SEED(i), PPE_HASH_SEED);
++
 +		/* Enable CS0_PIPE and SRH_CACHE_FIRST for improved small-packet performance */
 +		airoha_fe_rmw(eth, REG_PPE_GLO_CFG(i),
 +			      PPE_GLO_CFG_CS0_PIPE_EN | PPE_GLO_CFG_SRH_CACHE_FIRST_EN,
 +			      PPE_GLO_CFG_CS0_PIPE_EN | PPE_GLO_CFG_SRH_CACHE_FIRST_EN);
-+
- 		airoha_fe_wr(eth, REG_PPE_HASH_SEED(i), PPE_HASH_SEED);
  
  		for (p = 0; p < ARRAY_SIZE(eth->ports); p++)
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
