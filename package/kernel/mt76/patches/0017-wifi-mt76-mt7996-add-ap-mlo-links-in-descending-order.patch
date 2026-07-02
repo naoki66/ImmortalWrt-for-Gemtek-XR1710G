@@ -1,0 +1,130 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yanghan Ye <yyh94306@gmail.com>
+Date: Sun, 10 May 2026 03:09:19 +0800
+Subject: [PATCH] wifi: mt76: mt7996: add AP MLO links in descending order
+
+Split AP MLO link creation into a per-link helper and add links in descending order. This makes the higher link available first for AP MLO link-selection logic used by follow-up aggregation handling.
+
+Signed-off-by: Yanghan Ye <yyh94306@gmail.com>
+---
+ mt7996/main.c | 95 ++++++++++++++++++++++++++++++---------------------
+ 1 file changed, 57 insertions(+), 38 deletions(-)
+
+diff --git a/mt7996/main.c b/mt7996/main.c
+index 4263302..eec562d 100644
+--- a/mt7996/main.c
++++ b/mt7996/main.c
+@@ -1250,56 +1250,75 @@ mt7996_mac_sta_remove_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+ }
+ 
+ static int
+-mt7996_mac_sta_add_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
+-			 struct ieee80211_sta *sta, unsigned long new_links)
++mt7996_mac_sta_add_link(struct mt7996_dev *dev, struct ieee80211_vif *vif,
++			struct ieee80211_sta *sta, unsigned int link_id)
+ {
+ 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+-	unsigned int link_id;
+-	int err = 0;
++	struct ieee80211_bss_conf *link_conf;
++	struct ieee80211_link_sta *link_sta;
++	struct mt7996_sta_link *msta_link;
++	struct mt7996_vif_link *link;
++	struct mt76_phy *mphy;
++	int err;
+ 
+-	for_each_set_bit(link_id, &new_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+-		struct ieee80211_bss_conf *link_conf;
+-		struct ieee80211_link_sta *link_sta;
+-		struct mt7996_sta_link *msta_link;
+-		struct mt7996_vif_link *link;
+-		struct mt76_phy *mphy;
++	msta_link = mt76_dereference(msta->link[link_id], &dev->mt76);
++	if (msta_link) {
++		msta_link->wcid.link_valid = true;
++		return 0;
++	}
+ 
+-		msta_link = mt76_dereference(msta->link[link_id], &dev->mt76);
+-		if (msta_link) {
+-			msta_link->wcid.link_valid = true;
+-			continue;
+-		}
++	link_conf = link_conf_dereference_protected(vif, link_id);
++	if (!link_conf)
++		return -EINVAL;
+ 
+-		link_conf = link_conf_dereference_protected(vif, link_id);
+-		if (!link_conf) {
+-			err = -EINVAL;
+-			goto error_unlink;
+-		}
++	link = mt7996_vif_link(dev, vif, link_id);
++	if (!link)
++		return -EINVAL;
+ 
+-		link = mt7996_vif_link(dev, vif, link_id);
+-		if (!link) {
+-			err = -EINVAL;
+-			goto error_unlink;
+-		}
++	link_sta = link_sta_dereference_protected(sta, link_id);
++	if (!link_sta)
++		return -EINVAL;
+ 
+-		link_sta = link_sta_dereference_protected(sta, link_id);
+-		if (!link_sta) {
+-			err = -EINVAL;
+-			goto error_unlink;
+-		}
++	mphy = mt76_vif_link_phy(&link->mt76);
++	if (!mphy)
++		return -EINVAL;
+ 
+-		mphy = mt76_vif_link_phy(&link->mt76);
+-		if (!mphy) {
+-			err = -EINVAL;
+-			goto error_unlink;
++	err = mt7996_mac_sta_init_link(dev, link_conf, link_sta, link, link_id);
++	if (err)
++		return err;
++
++	mphy->num_sta++;
++
++	return 0;
++}
++
++static int
++mt7996_mac_sta_add_links(struct mt7996_dev *dev, struct ieee80211_vif *vif,
++			 struct ieee80211_sta *sta, unsigned long new_links)
++{
++	bool prefer_highest = sta->mlo && vif->type == NL80211_IFTYPE_AP &&
++			       ieee80211_vif_is_mld(vif);
++	unsigned int link_id;
++	int err = 0;
++	int i;
++
++	if (prefer_highest) {
++		for (i = IEEE80211_MLD_MAX_NUM_LINKS - 1; i >= 0; i--) {
++			if (!(new_links & BIT(i)))
++				continue;
++
++			err = mt7996_mac_sta_add_link(dev, vif, sta, i);
++			if (err)
++				goto error_unlink;
+ 		}
+ 
+-		err = mt7996_mac_sta_init_link(dev, link_conf, link_sta, link,
+-					       link_id);
++		return 0;
++	}
++
++	for_each_set_bit(link_id, &new_links, IEEE80211_MLD_MAX_NUM_LINKS) {
++		err = mt7996_mac_sta_add_link(dev, vif, sta, link_id);
+ 		if (err)
+ 			goto error_unlink;
+-
+-		mphy->num_sta++;
+ 	}
+ 
+ 	return 0;

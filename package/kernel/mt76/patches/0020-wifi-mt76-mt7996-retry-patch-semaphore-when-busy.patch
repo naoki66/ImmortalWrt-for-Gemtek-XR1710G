@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yanghan Ye <yyh94306@gmail.com>
+Date: Sun, 10 May 2026 03:09:19 +0800
+Subject: [PATCH] wifi: mt76: mt7996: retry patch semaphore when busy
+
+On XR1710G cold boot the ROM can transiently report PATCH_NOT_DL_SEM_FAIL when mt7996e requests the patch semaphore. Retry the explicit busy status for a short window while still failing immediately on unexpected statuses.
+
+Signed-off-by: Yanghan Ye <yyh94306@gmail.com>
+---
+ mt7996/mcu.c | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/mt7996/mcu.c b/mt7996/mcu.c
+index 34fcc4c..a3e1309 100644
+--- a/mt7996/mcu.c
++++ b/mt7996/mcu.c
+@@ -3,6 +3,7 @@
+  * Copyright (C) 2022 MediaTek Inc.
+  */
+ 
++#include <linux/delay.h>
+ #include <linux/firmware.h>
+ #include <linux/fs.h>
+ #include "mt7996.h"
+@@ -3355,16 +3356,24 @@ static int mt7996_load_patch(struct mt7996_dev *dev)
+ {
+ 	const struct mt7996_patch_hdr *hdr;
+ 	const struct firmware *fw = NULL;
+-	int i, ret, sem;
++	int i, ret, sem, tries;
++
++	for (tries = 0; tries < 50; tries++) {
++		sem = mt76_connac_mcu_patch_sem_ctrl(&dev->mt76, 1);
++		if (sem != PATCH_NOT_DL_SEM_FAIL)
++			break;
++
++		msleep(100);
++	}
+ 
+-	sem = mt76_connac_mcu_patch_sem_ctrl(&dev->mt76, 1);
+ 	switch (sem) {
+ 	case PATCH_IS_DL:
+ 		return 0;
+ 	case PATCH_NOT_DL_SEM_SUCCESS:
+ 		break;
+ 	default:
+-		dev_err(dev->mt76.dev, "Failed to get patch semaphore\n");
++		dev_err(dev->mt76.dev, "Failed to get patch semaphore: %d\n",
++			sem);
+ 		return -EAGAIN;
+ 	}
+ 

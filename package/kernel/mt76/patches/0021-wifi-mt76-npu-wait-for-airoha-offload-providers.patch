@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yanghan Ye <yyh94306@gmail.com>
+Date: Sun, 10 May 2026 03:09:19 +0800
+Subject: [PATCH] wifi: mt76: wait for Airoha offload providers during NPU init
+
+XR1710G loads mt7996e from modules-boot.d, so PCI probe can race the airoha-npu and airoha-eth providers. Wait briefly for the providers when they are still probing.
+
+Signed-off-by: Yanghan Ye <yyh94306@gmail.com>
+---
+ npu.c | 33 +++++++++++++++++++++++++++++++--
+ 1 file changed, 31 insertions(+), 2 deletions(-)
+
+diff --git a/npu.c b/npu.c
+index d6d0610..0af224c 100644
+--- a/npu.c
++++ b/npu.c
+@@ -3,6 +3,7 @@
+  * Copyright (c) 2025 AIROHA Inc
+  * Author: Lorenzo Bianconi <lorenzo@kernel.org>
+  */
++#include <linux/delay.h>
+ #include <linux/kernel.h>
+ #include <net/flow_offload.h>
+ #include <net/pkt_cls.h>
+@@ -11,6 +12,9 @@
+ #include "dma.h"
+ #include "mt76_connac.h"
+ 
++#define MT76_NPU_PROVIDER_RETRIES	50
++#define MT76_NPU_PROVIDER_DELAY_MS	100
++
+ #define MT76_NPU_RX_BUF_SIZE	(1800 + \
+ 				 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ 
+@@ -446,28 +450,53 @@ int mt76_npu_init(struct mt76_dev *dev, phys_addr_t phy_addr, int type)
+ 	struct airoha_ppe_dev *ppe_dev;
+ 	struct airoha_npu *npu;
+ 	int err = 0;
++	int i;
+ 
+ 	mutex_lock(&dev->mutex);
+ 
+ 	npu = airoha_npu_get(dev->dev);
+ 	if (IS_ERR(npu)) {
+ 		request_module("airoha-npu");
+-		npu = airoha_npu_get(dev->dev);
++		for (i = 0; i < MT76_NPU_PROVIDER_RETRIES; i++) {
++			npu = airoha_npu_get(dev->dev);
++			if (!IS_ERR(npu))
++				break;
++
++			err = PTR_ERR(npu);
++			if (err != -ENODEV && err != -EPROBE_DEFER)
++				break;
++
++			msleep(MT76_NPU_PROVIDER_DELAY_MS);
++		}
+ 	}
+ 
+ 	if (IS_ERR(npu)) {
+ 		err = PTR_ERR(npu);
++		dev_warn(dev->dev, "failed to get Airoha NPU provider: %d\n",
++			 err);
+ 		goto error_unlock;
+ 	}
+ 
+ 	ppe_dev = airoha_ppe_get_dev(dev->dev);
+ 	if (IS_ERR(ppe_dev)) {
+ 		request_module("airoha-eth");
+-		ppe_dev = airoha_ppe_get_dev(dev->dev);
++		for (i = 0; i < MT76_NPU_PROVIDER_RETRIES; i++) {
++			ppe_dev = airoha_ppe_get_dev(dev->dev);
++			if (!IS_ERR(ppe_dev))
++				break;
++
++			err = PTR_ERR(ppe_dev);
++			if (err != -ENODEV && err != -EPROBE_DEFER)
++				break;
++
++			msleep(MT76_NPU_PROVIDER_DELAY_MS);
++		}
+ 	}
+ 
+ 	if (IS_ERR(ppe_dev)) {
+ 		err = PTR_ERR(ppe_dev);
++		dev_warn(dev->dev, "failed to get Airoha PPE provider: %d\n",
++			 err);
+ 		goto error_npu_put;
+ 	}
+ 

@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yanghan Ye <yyh94306@gmail.com>
+Date: Sun, 10 May 2026 03:09:19 +0800
+Subject: [PATCH] wifi: mt76: mt7996: prefer secondary link for AP MLO data
+
+For AP MLO stations, use the selected secondary-link WCID for data-path aggregation setup when the AP prefers that link over the primary link. This keeps TX aggregation aligned with the link used for AP MLO data.
+
+Signed-off-by: Yanghan Ye <yyh94306@gmail.com>
+---
+ mt7996/mac.c  |  7 +------
+ mt7996/main.c | 19 ++++++++++++++++---
+ 2 files changed, 17 insertions(+), 9 deletions(-)
+
+diff --git a/mt7996/mac.c b/mt7996/mac.c
+index 64db215..034ad10 100644
+--- a/mt7996/mac.c
++++ b/mt7996/mac.c
+@@ -1143,12 +1143,7 @@ mt7996_txwi_free(struct mt7996_dev *dev, struct mt76_txwi_cache *t,
+ 	if (link_sta) {
+ 		wcid_idx = wcid->idx;
+ 		if (likely(t->skb->protocol != cpu_to_be16(ETH_P_PAE))) {
+-			struct mt7996_sta *msta;
+-
+-			/* AMPDU state is stored in the primary link */
+-			msta = (void *)link_sta->sta->drv_priv;
+-			mt7996_tx_check_aggr(link_sta, &msta->deflink.wcid,
+-					     t->skb);
++			mt7996_tx_check_aggr(link_sta, wcid, t->skb);
+ 		}
+ 	} else {
+ 		wcid_idx = le32_get_bits(txwi[9], MT_TXD9_WLAN_IDX);
+diff --git a/mt7996/main.c b/mt7996/main.c
+index d8f06fd..4263302 100644
+--- a/mt7996/main.c
++++ b/mt7996/main.c
+@@ -1609,6 +1609,7 @@ mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 	struct ieee80211_txq *txq = sta->txq[params->tid];
+ 	u16 tid = params->tid;
+ 	u16 ssn = params->ssn;
++	struct mt76_wcid *tx_agg_wcid = &msta->deflink.wcid;
+ 	struct mt76_txq *mtxq;
+ 	int ret = 0;
+ 
+@@ -1619,6 +1620,18 @@ mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 
+ 	mutex_lock(&dev->mt76.mutex);
+ 
++	if (sta->mlo && vif->type == NL80211_IFTYPE_AP &&
++	    ieee80211_vif_is_mld(vif) &&
++	    msta->seclink_id != IEEE80211_LINK_UNSPECIFIED &&
++	    msta->seclink_id != msta->deflink_id) {
++		struct mt7996_sta_link *msta_link;
++
++		msta_link = mt7996_sta_link_protected(dev, msta,
++						      msta->seclink_id);
++		if (msta_link)
++			tx_agg_wcid = &msta_link->wcid;
++	}
++
+ 	switch (params->action) {
+ 	case IEEE80211_AMPDU_RX_START:
+ 		/* Since packets belonging to the same TID can be split over
+@@ -1641,16 +1654,16 @@ mt7996_ampdu_action(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
+ 	case IEEE80211_AMPDU_TX_STOP_FLUSH:
+ 	case IEEE80211_AMPDU_TX_STOP_FLUSH_CONT:
+ 		mtxq->aggr = false;
+-		clear_bit(tid, &msta->deflink.wcid.ampdu_state);
++		clear_bit(tid, &tx_agg_wcid->ampdu_state);
+ 		ret = mt7996_mcu_add_tx_ba(dev, params, vif, false);
+ 		break;
+ 	case IEEE80211_AMPDU_TX_START:
+-		set_bit(tid, &msta->deflink.wcid.ampdu_state);
++		set_bit(tid, &tx_agg_wcid->ampdu_state);
+ 		ret = IEEE80211_AMPDU_TX_START_IMMEDIATE;
+ 		break;
+ 	case IEEE80211_AMPDU_TX_STOP_CONT:
+ 		mtxq->aggr = false;
+-		clear_bit(tid, &msta->deflink.wcid.ampdu_state);
++		clear_bit(tid, &tx_agg_wcid->ampdu_state);
+ 		ret = mt7996_mcu_add_tx_ba(dev, params, vif, false);
+ 		ieee80211_stop_tx_ba_cb_irqsafe(vif, sta->addr, tid);
+ 		break;

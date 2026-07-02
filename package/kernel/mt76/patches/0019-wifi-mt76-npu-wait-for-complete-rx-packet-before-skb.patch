@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Yanghan Ye <yyh94306@gmail.com>
+Date: Sun, 10 May 2026 03:09:19 +0800
+Subject: [PATCH] wifi: mt76: npu: wait for complete RX packet before building
+ skb
+
+The NPU RX path can report one packet across multiple DMA descriptors. Check that all descriptors for the packet are ready before transferring any buffer ownership to an skb.
+
+Signed-off-by: Yanghan Ye <yyh94306@gmail.com>
+---
+ npu.c | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/npu.c b/npu.c
+index dd954df..d6d0610 100644
+--- a/npu.c
++++ b/npu.c
+@@ -70,16 +70,20 @@ static struct sk_buff *mt76_npu_dequeue(struct mt76_dev *dev,
+ 	nframes = FIELD_GET(NPU_RX_DMA_PKT_COUNT_MASK, desc[index].info);
+ 	nframes = max_t(int, nframes, 1);
+ 
++	for (i = 0; i < nframes; i++) {
++		if (!FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, desc[index].ctrl))
++			return NULL;
++
++		index = (index + 1) % q->ndesc;
++	}
++
++	index = q->tail;
++
+ 	for (i = 0; i < nframes; i++) {
+ 		struct mt76_queue_entry *e = &q->entry[index];
+ 		int len = FIELD_GET(NPU_RX_DMA_DESC_CUR_LEN_MASK,
+ 				    desc[index].ctrl);
+ 
+-		if (!FIELD_GET(NPU_RX_DMA_DESC_DONE_MASK, desc[index].ctrl)) {
+-			dev_kfree_skb(skb);
+-			return NULL;
+-		}
+-
+ 		dma_sync_single_for_cpu(dev->dma_dev, e->dma_addr[0],
+ 					e->dma_len[0],
+ 					page_pool_get_dma_dir(q->page_pool));
