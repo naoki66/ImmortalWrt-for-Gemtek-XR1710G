@@ -8,17 +8,16 @@
 
 ## 设备规格
 
-SoC:Airoha AN7581GT
-1.3Ghz 4核CPU 8核NPU
-内存:2GB
-闪存:512MB
-网口:2x10G RTL8261BE 2x1G AN7581
-无线局域网:MT7996AV BE19000
-WLAN1:MT7976GN 2.4GHz 4x4
-WLAN2:MT7977BN 5GHz 4x4
-WLAN3:MT7977AN 6GHz 4x5
-PWM风扇:新通NCT7802
-电源规格：12V 5A
+o SoC:Airoha AN7581GT  1.3Ghz 4核CPU 8核NPU - 
+o 内存:2GB - 
+o 闪存:512MB - 
+o 网口:2x10G RTL8261BE 2x1G AN7581 - 
+o 无线局域网:MT7996AV BE19000 - 
+          - WLAN1:MT7976GN 2.4GHz 4x4 (Tx/Rx) 4096 QAM 40 MHz, up to 1376 Mbps - 
+          - WLAN2:MT7977BN 5GHz 4x4 (Tx/Rx) 4096 QAM 160 MHz, up to 5.76 Gbps - 
+          - WLAN3:MT7977AN 6GHz 4x5  (Tx/Rx) 4096 QAM 320 MHz backhauled, up to 10 Gbps - 
+o PWM风扇:新通NCT7802
+o 电源规格：12V 5A
 
 
 ## 固件特性
