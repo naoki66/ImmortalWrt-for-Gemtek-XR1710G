@@ -8,14 +8,18 @@
 
 ## 设备规格
 
-| 项目 | 规格 |
-|------|------|
-| SoC | Airoha AN7581（ARM Cortex-A73 双核） |
-| RAM | 1GB DDR4 |
-| Flash | 512MB NAND |
-| WiFi | MediaTek MT7996E（Wi-Fi 7 三频） |
-| 以太网 | 3×LAN + 1×WAN |
-| 传感器 | Nuvoton NCT7802（温度/风扇） |
+SoC:Airoha AN7581GT
+1.3Ghz 4核CPU 8核NPU
+内存:2GB
+闪存:512MB
+网口:2x10G RTL8261BE 2x1G AN7581
+无线局域网:MT7996AV BE19000
+WLAN1:MT7976GN 2.4GHz 4x4
+WLAN2:MT7977BN 5GHz 4x4
+WLAN3:MT7977AN 6GHz 4x5
+PWM风扇:新通NCT7802
+电源规格：12V 5A
+
 
 ## 固件特性
 
