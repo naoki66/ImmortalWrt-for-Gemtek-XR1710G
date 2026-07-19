@@ -1,0 +1,56 @@
+From: Gilly <gilroyscott1970@gmail.com>
+Date: Thu, 8 May 2026 00:00:00 +1000
+Subject: [PATCH] net: dsa: mt7530: deassert PHY reset GPIOs before MDIO bus scan
+
+---
+--- a/drivers/net/dsa/mt7530.c
++++ b/drivers/net/dsa/mt7530.c
+@@ -2272,6 +2272,38 @@ static void mt7530_free_irq(struct mt7530_priv *priv)
+ 	mt7530_free_irq_common(priv);
+ }
+
++static void
++mt7530_mdio_predeassert_phy_resets(struct device *dev, struct device_node *mnp)
++{
++	struct device_node *child;
++	u32 deassert_us;
++
++	for_each_available_child_of_node(mnp, child) {
++		struct gpio_desc *gpiod;
++
++		gpiod = fwnode_gpiod_get_index(of_fwnode_handle(child),
++					       "reset", 0, GPIOD_OUT_LOW,
++					       "mt7530-mdio-scan");
++		if (IS_ERR_OR_NULL(gpiod))
++			continue;
++
++		/* fwnode_gpiod_get_index with GPIOD_OUT_LOW already drove
++		 * the line low (deasserted, since reset-gpios in DTS is
++		 * GPIO_ACTIVE_LOW). Honour the declared settle time before
++		 * releasing so phylib can re-acquire the line for its own
++		 * probe-time reset cycle.
++		 */
++		if (of_property_read_u32(child, "reset-deassert-us",
++					 &deassert_us) == 0 && deassert_us)
++			fsleep(deassert_us);
++
++		gpiod_put(gpiod);
++
++		dev_dbg(dev, "pre-deasserted reset for PHY %pOFn\n",
++			child);
++	}
++}
++
+ static int
+ mt7530_setup_mdio(struct mt7530_priv *priv)
+ {
+@@ -2306,6 +2338,9 @@ mt7530_setup_mdio(struct mt7530_priv *priv)
+ 	if (priv->irq && !mnp)
+ 		mt7530_setup_mdio_irq(priv);
+
++	if (mnp)
++		mt7530_mdio_predeassert_phy_resets(dev, mnp);
++
+ 	ret = devm_of_mdiobus_register(dev, bus, mnp);
+ 	if (ret) {
+ 		dev_err(dev, "failed to register MDIO bus: %d\n", ret);

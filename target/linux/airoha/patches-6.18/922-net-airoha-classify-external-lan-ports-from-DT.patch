@@ -1,0 +1,53 @@
+From 86e1f84e8c9a15c61985f2329e20462ff3d55ca0 Mon Sep 17 00:00:00 2001
+From: Yanghan Ye <yyh94306@gmail.com>
+Date: Sun, 12 Apr 2026 18:55:56 +0800
+Subject: [PATCH] net: airoha: classify external lan ports from DT
+
+XR1710G and W1700K expose an external PHY on GDM4, but that port is a
+LAN member, not a WAN uplink. The current driver assumes only GDM1 is a
+LAN port on EN7581 and therefore treats GDM4 as WAN.
+
+That misclassification feeds directly into the recent offload code paths:
+- the port is pinned to the WAN QDMA block
+- FE LAN/WAN MAC programming uses the wrong register bank
+- PPE fast-path handling misses the LAN case
+
+As a result, NPU/PPE offload never becomes effective on these boards and
+traffic falls back to CPU forwarding.
+
+Allow board DTS files to mark external LAN ports explicitly and keep an
+OpenWrt netdev-name fallback for already named boards.
+
+Signed-off-by: Yanghan Ye <yyh94306@gmail.com>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -75,4 +75,17 @@ static void airoha_qdma_irq_disable(stru
+ 	airoha_qdma_set_irqmask(irq_bank, index, mask, 0);
+ }
+ 
++static bool airoha_dev_is_lan(struct device_node *np, u32 id)
++{
++	const char *name;
++
++	if (of_property_read_bool(np, "airoha,lan-port"))
++		return true;
++
++	if (!of_property_read_string(np, "openwrt,netdev-name", &name))
++		return !strncmp(name, "lan", 3);
++
++	return id == AIROHA_GDM1_IDX;
++}
++
+ static int airoha_set_macaddr(struct airoha_gdm_dev *dev, const u8 *addr)
+@@ -3894,4 +3907,7 @@ static int airoha_alloc_gdm_device(struc
+ 	dev->port = port;
+ 	dev->eth = eth;
+ 	dev->nbq = nbq;
++	if (!airoha_dev_is_lan(np, port->id))
++		dev->flags |= AIROHA_PRIV_F_WAN;
++
+ 	port->devs[index] = dev;

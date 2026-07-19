@@ -1,0 +1,40 @@
+From: Gilly <gilroyscott1970@gmail.com>
+Date: Tue, 6 May 2026 13:30:00 +1000
+Subject: [PATCH] net: pcs: airoha: extend manual RX calibration to E2 silicon
+
+The AN7581 PCS driver skips manual RX calibration for SoC revisions
+>= E2, on the assumption that E2+ silicon autocalibrates correctly.
+In practice E2 silicon (PRODUCT_ID = 2) on Gemtek W1700K HW.1.1
+boards leaves RX permanently stuck on ~80% of cold boots when manual
+calibration is skipped, while HW.1.0 (PRODUCT_ID = 1) is reliable.
+
+The manual calibration path retries up to AIROHA_PCS_MAX_CALIBRATION_TRY
+times when the FreqDet module fails to lock; the autocalibration path
+has no equivalent retry.
+
+Extend the threshold to include E2 silicon.
+
+Signed-off-by: Gilly <gilroyscott1970@gmail.com>
+---
+--- a/drivers/net/pcs/airoha/pcs-airoha-common.c
++++ b/drivers/net/pcs/airoha/pcs-airoha-common.c
+@@ -1046,8 +1046,8 @@
+ 		return dev_err_probe(dev, PTR_ERR(priv->xfi_rst), "failed to get xfi reset lines\n");
+ 
+ 	/* For Ethernet PCS, read the AN7581 SoC revision to check if
+-	 * manual rx calibration is needed. This is only limited to
+-	 * any SoC revision before E2.
++	 * manual rx calibration is needed. Extend the manual-calibration
++	 * threshold to include E2 silicon.
+ 	 */
+ 	if (device_is_compatible(dev, "airoha,an7581-pcs-eth") &&
+ 	    data->port_type == AIROHA_PCS_ETH) {
+@@ -1057,7 +1057,7 @@
+ 		if (ret)
+ 			return ret;
+ 
+-		if (FIELD_GET(AIROHA_SCU_PRODUCT_ID, val) < 0x2)
++		if (FIELD_GET(AIROHA_SCU_PRODUCT_ID, val) < 0x3)
+ 			priv->manual_rx_calib = true;
+ 	}
+ 
