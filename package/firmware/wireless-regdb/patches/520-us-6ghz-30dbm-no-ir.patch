@@ -1,0 +1,13 @@
+Raise US 6GHz from 12 dBm to 30 dBm and remove NO-IR to enable AP mode.
+---
+--- a/db.txt
++++ b/db.txt
+@@ -1796,7 +1796,7 @@ country US: DFS-FCC
+ 	(5850 - 5895 @ 40), (27), NO-OUTDOOR, AUTO-BW, NO-IR
+ 	# 6g band
+ 	# https://www.federalregister.gov/documents/2020/05/26/2020-11236/unlicensed-use-of-the-6ghz-band
+-	(5925 - 7125 @ 320), (12), NO-OUTDOOR, NO-IR
++	(5925 - 7125 @ 320), (30), NO-OUTDOOR
+ 	# 60g band
+ 	# reference: section IV-D https://docs.fcc.gov/public/attachments/FCC-16-89A1.pdf
+ 	# channels 1-6 EIRP=40dBm(43dBm peak)

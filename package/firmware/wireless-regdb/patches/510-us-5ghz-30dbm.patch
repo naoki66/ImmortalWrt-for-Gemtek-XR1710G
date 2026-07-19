@@ -1,0 +1,13 @@
+Raise US UNII-1 (5GHz channels 36-48) from 23 dBm to 30 dBm to match XR1710G AP grant.
+---
+--- a/db.txt
++++ b/db.txt
+@@ -1783,7 +1783,7 @@ country US: DFS-FCC
+ 	(920 - 928 @ 8), (30)
+ 	(2400 - 2472 @ 40), (30)
+ 	# 5.15 ~ 5.25 GHz: 30 dBm for master mode, 23 dBm for clients
+-	(5150 - 5250 @ 80), (23), AUTO-BW
++	(5150 - 5250 @ 80), (30), AUTO-BW
+ 	(5250 - 5350 @ 80), (24), DFS, AUTO-BW
+ 	# This range ends at 5725 MHz, but channel 144 extends to 5730 MHz.
+ 	# Since 5725 ~ 5730 MHz belongs to the next range which has looser

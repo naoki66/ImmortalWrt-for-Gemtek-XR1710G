@@ -1,0 +1,13 @@
+Raise CN 2.4GHz from 20 dBm to 30 dBm.
+---
+--- a/db.txt
++++ b/db.txt
+@@ -405,7 +405,7 @@ country CL: DFS-JP
+ # https://wap.miit.gov.cn/cms_files/filemanager/1226211233/attach/20219/d125301b13454551b698ff5afa49ca28.pdf
+ # Note: The transmit power for 5150-5350MHz bands can be raised by 3dBm when TPC is implemented
+ country CN: DFS-FCC
+-	(2400 - 2483.5 @ 40), (20)
++	(2400 - 2483.5 @ 40), (30)
+ 	(5150 - 5350 @ 80), (20), DFS, AUTO-BW
+ 	(5725 - 5850 @ 80), (33)
+ 	# 60 GHz band channels 1,4: 28dBm, channels 2,3: 44dBm

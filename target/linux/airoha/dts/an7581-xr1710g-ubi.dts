@@ -8,7 +8,8 @@
 #include "an7581-npu-mt7996.dtsi"
 / {
 	model = "Gemtek XR1710G";
-	compatible = "gemtek,xr1710g-ubi",
+	compatible = "econet,xr1710g-ubi", "gemtek,xr1710g-ubi",
+		     "econet,xr1710g", "gemtek,xr1710g",
 		     "airoha,an7581", "airoha,en7581";
 	aliases {
 		serial0 = &uart1;
@@ -299,6 +300,8 @@
 };
 &gdm4 {
 	status = "okay";
+	airoha,lan-port;
+
 	managed = "in-band-status";
 	phy-handle = <&phy5>;
 	phy-mode = "usxgmii";
