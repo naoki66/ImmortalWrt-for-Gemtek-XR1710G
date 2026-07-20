@@ -1,0 +1,86 @@
+From Gilly Mon Sep 17 00:00:00 2001
+From: Gilly <gilly@example.com>
+Date: Fri, 17 Apr 2026 00:00:00 +0000
+Subject: [PATCH] net: airoha: ppe: Init PPE hardware at TC block bind time for bridge/AP mode
+
+Root cause: in bridge/AP mode the kernel's nf_flow_table bridge traversal
+(nft_flow_route_bridging) relies on br_fdb_find_rcu() to identify the
+egress port. When the bridge FDB is hardware-offloaded to MT7530/switchdev
+(empty software FDB), this returns NULL so nft_flow_offload returns -ENOENT
+and no flows are ever added to the nf_flowtable. Without flows, TC_CLSFLOWER
+is never issued, and airoha_ppe_offload_setup() (and airoha_ppe_hw_init())
+never runs -- PPE hardware stays unconfigured with 0 flow table entries.
+
+Fix by calling airoha_ppe_start_offload() at FLOW_BLOCK_BIND time, when
+fw4 first associates the flowtable with the airoha device. The NPU firmware
+is loaded by ~12s into boot; fw4 runs at ~25-40s, so the NPU is always ready.
+
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 11 ++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.h |  1 +
+ drivers/net/ethernet/airoha/airoha_ppe.c | 24 ++++++++++++++++++++++
+ 3 files changed, 35 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -3328,6 +3328,8 @@ static int airoha_dev_setup_tc_block(struct net_device *dev,
+ 	struct flow_block_offload *f)
+ {
+ 	flow_setup_cb_t *cb = airoha_dev_setup_tc_block_cb;
++	struct airoha_gdm_dev *gdm_dev = netdev_priv(dev);
+ 	static LIST_HEAD(block_cb_list);
++	struct airoha_eth *eth = gdm_dev->eth;
+ 	struct flow_block_cb *block_cb;
+ 
+ 	if (f->binder_type != FLOW_BLOCK_BINDER_TYPE_CLSACT_INGRESS)
+@@ -3351,6 +3353,13 @@ static int airoha_dev_setup_tc_block(struct net_device *dev,
+ 		flow_block_cb_incref(block_cb);
+ 		flow_block_cb_add(block_cb, f);
+ 		list_add_tail(&block_cb->driver_list, &block_cb_list);
++	/* Eagerly initialize PPE hardware for bridge/AP mode where
++	 * the software bridge FDB is empty (hardware-offloaded to
++	 * MT7530/switchdev) so nf_flow_table never issues TC_CLSFLOWER
++	 * rules and the lazy PPE init in airoha_ppe_setup_tc_block_cb
++	 * would never fire. */
++	airoha_ppe_start_offload(eth);
++
+ 	return 0;
+ 	case FLOW_BLOCK_UNBIND:
+ 		block_cb = flow_block_cb_lookup(f->block, cb, dev);
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -718,6 +718,7 @@ int airoha_ppe_setup_tc_block_cb(struct airoha_ppe_dev *dev, void *type_data);
++void airoha_ppe_start_offload(struct airoha_eth *eth);
+ int airoha_ppe_init(struct airoha_eth *eth);
+ void airoha_ppe_deinit(struct airoha_eth *eth);
+ void airoha_ppe_init_upd_mem(struct airoha_gdm_port *port);
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -3033,6 +3033,30 @@ EXPORT_SYMBOL_GPL(airoha_ppe_put_dev);
+ 
+ /**
++ * airoha_ppe_start_offload - eagerly initialize PPE hardware offload
++ * @eth: airoha ethernet device
++ *
++ * Called at TC block bind time (FLOW_BLOCK_BIND) so that PPE hardware is
++ * initialized even in bridge/AP mode where the kernel's nf_flow_table bridge
++ * traversal fails due to an empty software FDB (hardware-offloaded to
++ * MT7530/switchdev), meaning TC_CLSFLOWER rules are never issued and the
++ * lazy init path in airoha_ppe_setup_tc_block_cb never fires.
++ */
++void airoha_ppe_start_offload(struct airoha_eth *eth)
++{
++	if (!test_bit(DEV_STATE_REGISTERED, &eth->state))
++		return;
++
++	mutex_lock(&flow_offload_mutex);
++	if (!eth->npu)
++		airoha_ppe_offload_setup(eth);
++	mutex_unlock(&flow_offload_mutex);
++}
++EXPORT_SYMBOL_GPL(airoha_ppe_start_offload);
++
++/**
+  * airoha_ppe_init - initialize PPE subsystem
+  * @eth: airoha ethernet device
+  *
