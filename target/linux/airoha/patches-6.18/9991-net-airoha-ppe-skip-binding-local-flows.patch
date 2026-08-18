@@ -1,0 +1,70 @@
+From: Claude <noreply@anthropic.com>
+Date: Tue, 18 Aug 2026 20:50:00 +0800
+Subject: [PATCH] net: airoha: ppe: skip binding flows destined to the local host
+
+The PPE driver binds flows seen on the wire even when they are addressed
+to the router itself (destination MAC equals a local interface address,
+i.e. traffic to the router's own IP). Such flows must be delivered to
+the CPU and must never be offloaded to the hardware: committing a local
+flow produces a broken PPE entry (observed with the ethertype cleared)
+that drops traffic after the first burst, limiting local throughput to
+~128KB/256K on the 10G LAN port when flow_offloading_hw is enabled.
+
+Skip the hardware bind for packets whose destination MAC matches the
+ingress device or its bridge master.
+
+Assisted-by: Claude
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c | 25 +++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -1689,6 +1689,31 @@ int airoha_ppe_setup_tc_block_cb(struct airoha_ppe_dev *dev, void *type_data)
+ 	return err;
+ }
+ 
++static bool airoha_ppe_skb_is_local(struct sk_buff *skb)
++{
++	const u8 *dest = eth_hdr(skb)->h_dest;
++	struct net_device *dev = skb->dev;
++	struct net_device *master;
++
++	if (!dev)
++		return false;
++
++	if (ether_addr_equal(dest, dev->dev_addr))
++		return true;
++
++	rcu_read_lock();
++	master = airoha_ppe_foe_get_bridge_master_rcu(dev);
++	if (master) {
++		bool local = ether_addr_equal(dest, master->dev_addr);
++
++		rcu_read_unlock();
++		return local;
++	}
++	rcu_read_unlock();
++
++	return false;
++}
++
+ void airoha_ppe_check_skb(struct airoha_ppe_dev *dev, struct sk_buff *skb,
+ 			  u16 hash, bool rx_wlan)
+ {
+@@ -1699,6 +1724,15 @@ void airoha_ppe_check_skb(struct airoha_ppe_dev *dev, struct sk_buff *skb,
+ 	if (hash > ppe_hash_mask)
+ 		return;
+ 
++	/* Flows addressed to the router itself must be delivered to the CPU
++	 * and must never be offloaded to the PPE. Committing a local flow
++	 * produces a broken PPE entry that drops traffic after the first
++	 * burst (128KB throughput cliff on the 10G LAN port observed with
++	 * flow_offloading_hw enabled).
++	 */
++	if (airoha_ppe_skb_is_local(skb))
++		return;
++
+ 	now = (u16)jiffies;
+ 	diff = now - ppe->foe_check_time[hash];
+ 	if (diff < HZ / 10)
