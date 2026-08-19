@@ -52,12 +52,13 @@ jobs:
           sudo apt update
           sudo apt install -y build-essential clang gcc g++ binutils bzip2 gawk gettext git libncurses-dev libssl-dev python3 python3-setuptools rsync unzip wget xsltproc zlib1g-dev file which perl sed make
 
-      # ==== 缓存 feeds/（git clone 结果）。恢复后 feeds update 只做增量 git pull，省掉每次全量克隆 ====
+      # ==== 缓存 feeds/（git clone 结果）。恢复后 feeds update 只做增量 git pull，省掉每次全量克隆。
+      #      save 步骤在 job 末尾（save 的 key 带 run_id，否则 key 已存在时永远存不进去）====
       - name: Restore feeds cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: feeds
-          key: feeds-${{ runner.os }}
+          key: feeds-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             feeds-${{ runner.os }}
 
@@ -72,16 +73,15 @@ jobs:
           make defconfig
 
       # ==== 缓存 dl/（源码包下载结果，ccache 也放这里，见 config.seed 的 CCACHE_DIR）。
-      #      即使树更新后部分包版本变了，make download 会校验 sha256 自动补下增量，所以静态 key 足够。
-      #      save-always 保证即使编译失败（比如 wifi 驱动编译报错）也能把已下载的源码和 ccache 存下来 ====
+      #      即使树更新后部分包版本变了，make download 会校验 sha256 自动补下增量，所以 restore-keys 静态前缀足够。
+      #      save 步骤在 job 末尾（key 带 run_id 避免与已存在的缓存冲突导致存不进去）====
       - name: Restore dl cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: dl
-          key: dl-${{ runner.os }}
+          key: dl-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             dl-${{ runner.os }}
-          save-always: true
 
       - name: Download sources
         run: make download -j$(nproc)
@@ -89,15 +89,15 @@ jobs:
       # ==== 缓存 staging_dir/（交叉工具链 + host 工具）。工具链编译是整个构建最耗时的一步，
       #      stamp（如 toolchain/Makefile 的 .gcc_final_installed）就存在 staging_dir 里，
       #      命中后 make 会直接跳过工具链编译。key 带 github.sha：上游同步导致工具链版本变化时
-      #      自动走 restore-keys 恢复旧工具链并只重编有变化的部分；save-always 保证失败的构建也保存工具链 ====
+      #      自动走 restore-keys 恢复旧工具链并只重编有变化的部分。
+      #      save 步骤在 job 末尾，if: always() 保证失败的构建也保存工具链 ====
       - name: Restore staging_dir cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: staging_dir
           key: staging-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             staging-${{ runner.os }}-
-          save-always: true
 
       - name: Build Firmware
         shell: bash
@@ -133,6 +133,28 @@ jobs:
             bin/targets/airoha/an7581/sha256sums
           retention-days: 30
         if: always()
+
+      # ==== 缓存保存（即使编译失败也保存，取代已废弃的 save-always）====
+      - name: Save feeds cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: feeds
+          key: feeds-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Save dl cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: dl
+          key: dl-${{ runner.os }}-${{ github.run_id }}
+
+      - name: Save staging_dir cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: staging_dir
+          key: staging-${{ runner.os }}-${{ github.sha }}
 
       - name: Build release body
         if: github.event.inputs.release_type != 'none'
