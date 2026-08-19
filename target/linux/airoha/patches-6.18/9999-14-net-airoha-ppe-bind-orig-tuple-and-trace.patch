@@ -1,0 +1,75 @@
+From: Claude <noreply@anthropic.com>
+Date: Wed, 19 Aug 2026 17:30:00 +0800
+Subject: [PATCH] net: airoha: ppe: bind flowtable entries by orig tuple + trace check_skb
+
+The flowtable now delivers flows to the driver (conntrack [HW_OFFLOAD])
+but every PPE entry stays UNB. airoha_ppe_foe_compare_entry byte-compares
+the full entry (including L2 MACs/ethertype and the NAT new tuple), but
+hardware entries created by the NPU on RX carry incomplete L2 fields and
+a different new tuple, so the compare always rejects them and the
+flowtable entry is never bound.
+
+Compare only the flow identity (the original tuple) for IPv4/IPv6, and
+also require the hardware entry packet type to match. Add a ratelimited
+trace in airoha_ppe_check_skb to confirm the HIT_UNBIND trigger fires.
+Remove the trace once binding is confirmed.
+
+Assisted-by: Claude
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c | 32 ++++++++++++++++++++++++++------
+ 1 file changed, 26 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
+--- fork_clean_lf.c	2026-08-19 23:41:31
++++ fork_clean_lf.mod.c	2026-08-19 23:41:40
+@@ -738,17 +738,34 @@
+ 					 struct airoha_foe_entry *hwe)
+ {
+ 	int type = FIELD_GET(AIROHA_FOE_IB1_BIND_PACKET_TYPE, e->data.ib1);
+-	int len;
+ 
+ 	if ((hwe->ib1 ^ e->data.ib1) & AIROHA_FOE_IB1_BIND_UDP)
+ 		return false;
+ 
+-	if (type > PPE_PKT_TYPE_IPV4_DSLITE)
+-		len = offsetof(struct airoha_foe_entry, ipv6.data);
+-	else
+-		len = offsetof(struct airoha_foe_entry, ipv4.ib2);
++	if (FIELD_GET(AIROHA_FOE_IB1_BIND_PACKET_TYPE, hwe->ib1) != type)
++		return false;
+ 
+-	return !memcmp(&e->data.d, &hwe->d, len - sizeof(hwe->ib1));
++	/* Compare only the flow identity (the original tuple). Hardware
++	 * entries created by the NPU on RX carry incomplete L2 fields (zero
++	 * MACs / ethertype), so a byte-for-byte compare of the whole entry
++	 * would always reject them and the flowtable entries would never be
++	 * bound to the PPE.
++	 */
++	switch (type) {
++	case PPE_PKT_TYPE_IPV4_HNAPT:
++	case PPE_PKT_TYPE_IPV4_ROUTE:
++	case PPE_PKT_TYPE_IPV4_DSLITE:
++		return !memcmp(&e->data.ipv4.orig_tuple,
++			       &hwe->ipv4.orig_tuple,
++			       sizeof(struct airoha_foe_ipv4_tuple));
++	case PPE_PKT_TYPE_IPV6_ROUTE_3T:
++	case PPE_PKT_TYPE_IPV6_ROUTE_5T:
++	case PPE_PKT_TYPE_IPV6_6RD:
++		return !memcmp(&e->data.ipv6.src_ip, &hwe->ipv6.src_ip,
++			       offsetof(struct airoha_foe_ipv6, data));
++	default:
++		return false;
++	}
+ }
+ 
+ static int airoha_ppe_foe_commit_sram_entry(struct airoha_ppe *ppe, u32 hash)
+@@ -1725,6 +1742,9 @@
+ 	if (hash > ppe_hash_mask)
+ 		return;
+ 
++	pr_warn_ratelimited("airoha_ppe: check_skb hash=%04x rx_wlan=%d\n",
++			    hash, rx_wlan);
++
+ 	/* Flows addressed to the router itself must be delivered to the CPU
+ 	 * and must never be offloaded to the PPE. Committing a local flow
+ 	 * produces a broken PPE entry that drops traffic after the first
