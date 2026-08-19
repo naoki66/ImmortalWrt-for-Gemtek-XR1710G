@@ -1,0 +1,118 @@
+From: Claude <noreply@anthropic.com>
+Date: Wed, 19 Aug 2026 15:30:00 +0800
+Subject: [PATCH] netfilter: nft_flow_offload: add temporary eval diagnostics
+
+Diagnostic build: print which flowtable-add condition rejects a flow.
+The flowtable adds zero flows on the Airoha AN7581 even after restoring
+non-fatal forward-path resolution; this pinpoints the exact eval exit so
+the remaining bug can be fixed. Remove after diagnosis.
+
+Assisted-by: Claude
+---
+ net/netfilter/nft_flow_offload.c | 68 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 66 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/nft_flow_offload.c b/net/netfilter/nft_flow_offload.c
+@@ -99,22 +99,31 @@
+ 	struct nf_conn *ct;
+ 	int ret;
+ 
+-	if (nft_flow_offload_skip(pkt->skb, nft_pf(pkt)))
++	if (nft_flow_offload_skip(pkt->skb, nft_pf(pkt))) {
++		pr_warn_ratelimited("nf_ft: skip\n");
+ 		goto out;
++	}
+ 
+ 	ct = nf_ct_get(pkt->skb, &ctinfo);
+-	if (!ct)
++	if (!ct) {
++		pr_warn_ratelimited("nf_ft: no_ct\n");
+ 		goto out;
++	}
+ 
+ 	switch (ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum) {
+ 	case IPPROTO_TCP:
+ 		tcph = skb_header_pointer(pkt->skb, nft_thoff(pkt),
+ 					  sizeof(_tcph), &_tcph);
+-		if (unlikely(!tcph))
++		if (unlikely(!tcph)) {
++			pr_warn_ratelimited("nf_ft: no_tcph\n");
+ 			goto out;
+-		if (unlikely(tcph->fin || tcph->rst))
++		}
++		if (unlikely(tcph->fin || tcph->rst)) {
++			pr_warn_ratelimited("nf_ft: fin_rst\n");
+ 			goto out;
++		}
+ 		if (unlikely(!nf_conntrack_tcp_established(ct))) {
++			pr_warn_ratelimited("nf_ft: not_established\n");
+ 			tcp_not_established = true;
+ 			break;
+ 		}
+@@ -135,22 +144,31 @@
+ 	}
+ #endif
+ 	default:
++		pr_warn_ratelimited("nf_ft: bad_proto\n");
+ 		goto out;
+ 	}
+ 
+ 	if (nf_ct_ext_exist(ct, NF_CT_EXT_HELPER) ||
+-	    ct->status & (IPS_SEQ_ADJUST | IPS_NAT_CLASH))
++	    ct->status & (IPS_SEQ_ADJUST | IPS_NAT_CLASH)) {
++		pr_warn_ratelimited("nf_ft: helper_clash\n");
+ 		goto out;
++	}
+ 
+-	if (!nf_ct_is_confirmed(ct))
++	if (!nf_ct_is_confirmed(ct)) {
++		pr_warn_ratelimited("nf_ft: not_confirmed\n");
+ 		goto out;
++	}
+ 
+-	if (test_and_set_bit(IPS_OFFLOAD_BIT, &ct->status))
++	if (test_and_set_bit(IPS_OFFLOAD_BIT, &ct->status)) {
++		pr_warn_ratelimited("nf_ft: offload_bit_set\n");
+ 		goto out;
++	}
+ 
+ 	dir = CTINFO2DIR(ctinfo);
+-	if (nft_flow_route(pkt, ct, &route, dir, priv->flowtable) < 0)
++	if (nft_flow_route(pkt, ct, &route, dir, priv->flowtable) < 0) {
++		pr_warn_ratelimited("nf_ft: route_failed\n");
+ 		goto err_flow_route;
++	}
+ 
+ 	/* XFRM packet offload can hide part of the plaintext TCP handshake from
+ 	 * conntrack. Once routing proves that either direction is an XFRM
+@@ -159,12 +177,16 @@
+ 	 */
+ 	if (tcp_not_established &&
+ 	    route.tuple[IP_CT_DIR_ORIGINAL].xmit_type != FLOW_OFFLOAD_XMIT_XFRM &&
+-	    route.tuple[IP_CT_DIR_REPLY].xmit_type != FLOW_OFFLOAD_XMIT_XFRM)
++	    route.tuple[IP_CT_DIR_REPLY].xmit_type != FLOW_OFFLOAD_XMIT_XFRM) {
++		pr_warn_ratelimited("nf_ft: not_est_no_xfrm\n");
+ 		goto err_flow_route;
++	}
+ 
+ 	flow = flow_offload_alloc(ct);
+-	if (!flow)
++	if (!flow) {
++		pr_warn_ratelimited("nf_ft: alloc_failed\n");
+ 		goto err_flow_alloc;
++	}
+ 
+ 	nft_flow_set_dscp(pkt, flow, dir);
+ 	nft_flow_set_dscp(pkt, flow, !dir);
+@@ -175,8 +197,10 @@
+ 
+ 	__set_bit(NF_FLOW_HW_BIDIRECTIONAL, &flow->flags);
+ 	ret = flow_offload_add(flowtable, flow);
+-	if (ret < 0)
++	if (ret < 0) {
++		pr_warn_ratelimited("nf_ft: add_failed ret=%d\n", ret);
+ 		goto err_flow_add;
++	}
+ 
+ 	return;
+ 
