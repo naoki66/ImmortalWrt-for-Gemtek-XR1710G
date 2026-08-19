@@ -1,0 +1,70 @@
+From: Claude <noreply@anthropic.com>
+Date: Wed, 19 Aug 2026 02:30:00 +0800
+Subject: [PATCH] netfilter: flowtable: fix bridging misclassification and make
+ forward-path resolution non-fatal
+
+Two issues in the Airoha flowtable offload path (introduced by the
+bridging-support patch) prevent every flow from being added to the
+flowtable, which in turn leaves the PPE/NPU with zero bound flows:
+
+1. nft_flow_offload_is_bridging() classifies *any* frame whose
+   destination MAC is present in the bridge FDB as bridging traffic.
+   The bridge FDB always contains the bridge's own MAC, so every
+   L3-routed frame whose next hop is the router (dst MAC == port MAC or
+   == bridge master MAC) is misclassified as bridging and sent down the
+   strict bridging offload path. That path resolves routes per direction
+   and can fail; a failed direction drops the whole flow.
+
+2. nft_dev_forward_path() returns -ENOENT when it cannot resolve the
+   device forward path (e.g. no valid neighbour for the router's own
+   address, or the resolved device is not listed in the flowtable).
+   nft_flow_route() propagates that error, so the flow is never added to
+   the flowtable. Mainline behaviour treats a failed forward-path lookup
+   as non-fatal and keeps the default route, letting the flow be
+   offloaded anyway.
+
+Restore the mainline semantics:
+- exclude frames addressed to the router itself from the bridging check,
+  so routed traffic takes the ordinary routing path;
+- make nft_dev_forward_path() non-fatal (return 0) when the device path
+  cannot be resolved.
+
+This lets established flows enter the flowtable and reach the Airoha PPE
+driver so L2/L3 forwarding can be bound to the NPU.
+
+Assisted-by: Claude
+---
+ net/netfilter/nf_flow_table_path.c | 22 ++++++++++++++++++-----
+ 1 file changed, 17 insertions(+), 5 deletions(-)
+
+diff --git a/net/netfilter/nf_flow_table_path.c b/net/netfilter/nf_flow_table_path.c
+@@ -87,6 +87,20 @@
+ 	rcu_read_lock();
+ 	port = br_port_get_rcu(skb->dev);
+ 	if (port) {
++		/* Frames addressed to the router itself (its port MAC or the
++		 * bridge master MAC) are L3-routed, not bridged. The bridge
++		 * FDB always contains the local MACs, so without this check
++		 * every routed frame would be misclassified as bridging and
++		 * pushed through the strict bridging offload path, which can
++		 * drop the whole flow when the forward path cannot be
++		 * resolved.
++		 */
++		if (ether_addr_equal(dmac, skb->dev->dev_addr) ||
++		    ether_addr_equal(dmac, port->br->dev->dev_addr)) {
++			rcu_read_unlock();
++			return false;
++		}
++
+ 		vlan_id = nft_flow_offload_get_vlan_id(port, skb);
+ 		if (br_fdb_find_rcu(port->br, dmac, vlan_id))
+ 			bridging = true;
+@@ -332,7 +346,7 @@
+ 	}
+ 
+ 	if (!info.indev || !nft_flowtable_find_dev(info.indev, ft))
+-		return -ENOENT;
++		return 0;
+ 
+ 	route->tuple[!dir].in.ifindex = info.indev->ifindex;
+ 	for (i = 0; i < info.num_encaps; i++) {
