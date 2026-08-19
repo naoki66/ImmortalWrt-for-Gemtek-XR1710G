@@ -1,0 +1,32 @@
+From: Claude <noreply@anthropic.com>
+Date: Wed, 19 Aug 2026 16:30:00 +0800
+Subject: [PATCH] net: airoha: ppe: diagnostic trace for bind path
+
+Diagnostic build: print whether the PPE bind path is entered.
+Flowtable offload now delivers flows to the driver (conntrack shows
+[HW_OFFLOAD]) but every PPE entry stays UNB with zero packet counts.
+The printk in airoha_ppe_check_skb shows whether the hardware ever
+reports HIT_UNBIND_RATE_REACHED (the only trigger for the driver to try
+to bind a flow). If this never fires, the flowtable short-circuit is
+preventing the hardware/CPU RX path from seeing the flow, and no amount
+of compare/commit fixing helps. Remove after diagnosis.
+
+Assisted-by: Claude
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -1724,7 +1724,11 @@ void airoha_ppe_check_skb(struct airoha_ppe_dev *dev, struct sk_buff *skb,
+ 	if (hash > ppe_hash_mask)
+ 		return;
+
++	pr_warn_ratelimited("airoha_ppe: check_skb hash=%04x rx_wlan=%d\n",
++			    hash, rx_wlan);
++
+ 	/* Flows addressed to the router itself must be delivered to the CPU
+ 	 * and must never be offloaded to the PPE. Committing a local flow
+ 	 * produces a broken PPE entry that drops traffic after the first
+ 	 * burst (128KB throughput cliff on the 10G LAN port observed with
+***  This is the last text block of the patch ***
