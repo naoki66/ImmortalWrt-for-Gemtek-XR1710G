@@ -1,0 +1,45 @@
+From: Claude <noreply@anthropic.com>
+Date: Thu, 20 Aug 2026 00:10:00 +0800
+Subject: [PATCH] net: airoha: ppe: trace bind attempt (insert/commit)
+
+Diagnostic build: check_skb fires (HIT_UNBIND) but no flow binds. Print
+whether foe_insert_entry finds a software entry at the hash and whether
+the compare matches, and the foe_commit_entry result. Remove after use.
+
+Assisted-by: Claude
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c | 22 ++++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
+--- fork_clean_lf.c	2026-08-19 23:41:31
++++ fork_clean_lf.diag.c	2026-08-20 08:06:10
+@@ -805,6 +805,8 @@
+ 		err = airoha_ppe_foe_commit_sram_entry(ppe, hash);
+ unlock:
+ 	rcu_read_unlock();
++
++	pr_warn_ratelimited("airoha_ppe: commit hash=%04x err=%d\n", hash, err);
+ 
+ 	return err;
+ }
+@@ -1103,6 +1105,19 @@
+ 		goto unlock;
+ 
+ 	index = airoha_ppe_foe_get_entry_hash(ppe, hwe);
++	{
++		struct airoha_flow_table_entry *__e;
++		struct hlist_node *__n;
++		int __cnt = 0, __match = 0;
++
++		hlist_for_each_entry_safe(__e, __n, &ppe->foe_flow[index], list) {
++			__cnt++;
++			if (airoha_ppe_foe_compare_entry(__e, hwe))
++				__match++;
++		}
++		pr_warn_ratelimited("airoha_ppe: insert hash=%04x idx=%04x sw=%d match=%d\n",
++				    hash, index, __cnt, __match);
++	}
+ 	hlist_for_each_entry_safe(e, n, &ppe->foe_flow[index], list) {
+ 		if (e->type == FLOW_TYPE_L2_SUBFLOW) {
+ 			state = FIELD_GET(AIROHA_FOE_IB1_BIND_STATE, hwe->ib1);
